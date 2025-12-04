@@ -7,10 +7,45 @@ Endpoints for discovery and context analysis.
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from datetime import date
+from calendar import monthrange
 
-from ...models.schemas import PromoOpportunity, PromoContext, GapAnalysis
+from ...models.schemas import PromoOpportunity, PromoContext, GapAnalysis, DateRange
+from ...engines.forecast_baseline_engine import ForecastBaselineEngine
+from ...tools.sales_data_tool import SalesDataTool
+from ...tools.context_data_tool import ContextDataTool
+from ...tools.targets_config_tool import TargetsConfigTool
 
 router = APIRouter()
+
+sales_tool = SalesDataTool()
+context_tool = ContextDataTool()
+targets_tool = TargetsConfigTool()
+baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
+
+
+def _month_to_range(month: str) -> tuple:
+    """Convert YYYY-MM to (start_date, end_date)."""
+    try:
+        year, month_num = map(int, month.split("-"))
+        last_day = monthrange(year, month_num)[1]
+        return date(year, month_num, 1), date(year, month_num, last_day)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Invalid month format, expected YYYY-MM") from exc
+
+
+def _build_context(geo: str, start_date: date, end_date: date) -> PromoContext:
+    """Assemble a lightweight context object from static fixtures."""
+    events = context_tool.get_events(geo, (start_date, end_date))
+    seasonality = context_tool.get_seasonality_profile(geo)
+    weekend_patterns = context_tool.get_weekend_patterns(geo)
+    return PromoContext(
+        geo=geo,
+        date_range=DateRange(start_date=start_date, end_date=end_date),
+        events=events,
+        weather=None,
+        seasonality=seasonality,
+        weekend_patterns=weekend_patterns,
+    )
 
 
 @router.get("/opportunities")
@@ -30,11 +65,34 @@ async def get_opportunities(
     Returns:
         List of promotional opportunities
     """
-    # TODO: Implement endpoint logic
-    # agent = DiscoveryAgent(...)
-    # opportunities = agent.analyze_situation(month, geo, targets)
-    # return opportunities
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    start_date, end_date = _month_to_range(month)
+    try:
+        baseline = baseline_engine.calculate_baseline((start_date, end_date))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    agg = sales_tool.get_aggregated_sales(
+        date_range=(start_date, end_date),
+        grain=["department"],
+        filters={"channel": None},
+    )
+    opportunities: List[PromoOpportunity] = []
+    for idx, row in agg.iterrows():
+        estimated_potential = float(row["sales_value"] * 0.12)
+        opportunities.append(
+            PromoOpportunity(
+                id=f"opp_{idx+1:02d}",
+                department=row["department"],
+                channel="mixed",
+                date_range=DateRange(start_date=start_date, end_date=end_date),
+                estimated_potential=estimated_potential,
+                priority=len(agg) - idx,
+                rationale=f"12% upside based on {row['department']} run-rate and recent demand",
+            )
+        )
+
+    opportunities.sort(key=lambda o: o.estimated_potential, reverse=True)
+    return opportunities
 
 
 @router.get("/context")
@@ -54,16 +112,17 @@ async def get_context(
     Returns:
         PromoContext object
     """
-    # TODO: Implement endpoint logic
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    try:
+        return _build_context(geo=geo, start_date=start_date, end_date=end_date)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/gaps")
 async def get_gaps(
     month: str,
     geo: str,
-    baseline: dict,
-    targets: dict
+    targets: Optional[dict] = None
 ) -> GapAnalysis:
     """
     Identify gaps between baseline and targets.
@@ -71,11 +130,25 @@ async def get_gaps(
     Args:
         month: Target month
         geo: Geographic region
-        baseline: Baseline forecast dictionary
-        targets: Targets dictionary
+        targets: Optional targets dictionary to override defaults
     
     Returns:
         GapAnalysis object
     """
-    # TODO: Implement endpoint logic
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+    start_date, end_date = _month_to_range(month)
+    try:
+        baseline = baseline_engine.calculate_baseline((start_date, end_date))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    targets = targets or targets_tool.get_targets(month).model_dump()
+    gaps = baseline_engine.calculate_gap_vs_targets(baseline, targets)
+    target_sales = targets.get("sales_target", 1) or 1
+    gap_percentage = {"sales": gaps["sales_gap"] / target_sales}
+
+    return GapAnalysis(
+        sales_gap=gaps["sales_gap"],
+        margin_gap=gaps["margin_gap"],
+        units_gap=gaps["units_gap"],
+        gap_percentage=gap_percentage,
+    )

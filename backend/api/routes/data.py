@@ -6,10 +6,18 @@ Endpoints for data processing and ETL operations.
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List
+from datetime import date
 
-from ...models.schemas import QualityReport, StorageResult
+from ...engines.forecast_baseline_engine import ForecastBaselineEngine
+from ...tools.sales_data_tool import SalesDataTool
+from ...tools.targets_config_tool import TargetsConfigTool
+from ...models.schemas import QualityReport, StorageResult, BaselineForecast
 
 router = APIRouter()
+
+sales_tool = SalesDataTool()
+targets_tool = TargetsConfigTool()
+baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
 
 
 @router.post("/process-xlsb")
@@ -44,6 +52,18 @@ async def get_quality_report(
     """
     # TODO: Implement endpoint logic
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+
+@router.get("/baseline")
+async def get_baseline(
+    start_date: date,
+    end_date: date,
+) -> BaselineForecast:
+    """Get baseline forecast for the requested date range."""
+    try:
+        return baseline_engine.calculate_baseline((start_date, end_date))
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/store")

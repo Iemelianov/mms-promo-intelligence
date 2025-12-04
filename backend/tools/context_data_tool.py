@@ -9,7 +9,7 @@ get_seasonality_profile(geo: str) -> SeasonalityProfile
 """
 
 from typing import List, Optional, Tuple, Dict
-from datetime import date
+from datetime import date, timedelta
 
 from ..models.schemas import Event, SeasonalityProfile, DateRange
 
@@ -19,7 +19,20 @@ class ContextDataTool:
     
     def __init__(self):
         """Initialize Context Data Tool."""
-        # TODO: Initialize external data sources
+        # Static fixtures for hackathon bootstrap
+        self._seasonality_defaults = SeasonalityProfile(
+            geo="DEFAULT",
+            monthly_factors={m: 1.0 for m in range(1, 13)},
+            weekly_patterns={
+                "Monday": 0.95,
+                "Tuesday": 1.0,
+                "Wednesday": 1.02,
+                "Thursday": 1.05,
+                "Friday": 1.12,
+                "Saturday": 1.15,
+                "Sunday": 0.85,
+            },
+        )
     
     def get_events(
         self,
@@ -36,11 +49,13 @@ class ContextDataTool:
         Returns:
             List of Event objects
         """
-        # TODO: Implement events retrieval logic
-        # - Holidays
-        # - Local events
-        # - Seasonal events
-        raise NotImplementedError("get_events not yet implemented")
+        start_date, end_date = date_range
+        span_days = (end_date - start_date).days
+        anchor = start_date + timedelta(days=min(span_days // 2, 7))
+        return [
+            Event(name="Payday weekend", date=anchor, type="seasonal", impact="medium"),
+            Event(name="Gaming launch week", date=anchor + timedelta(days=3), type="local_event", impact="high"),
+        ]
     
     def get_seasonality_profile(
         self,
@@ -55,8 +70,9 @@ class ContextDataTool:
         Returns:
             SeasonalityProfile with seasonal patterns
         """
-        # TODO: Implement seasonality profile retrieval logic
-        raise NotImplementedError("get_seasonality_profile not yet implemented")
+        profile = self._seasonality_defaults.model_copy()
+        profile.geo = geo
+        return profile
     
     def get_weekend_patterns(
         self,
@@ -71,5 +87,4 @@ class ContextDataTool:
         Returns:
             Dictionary with weekend pattern data
         """
-        # TODO: Implement weekend patterns logic
-        raise NotImplementedError("get_weekend_patterns not yet implemented")
+        return {"Saturday": 1.15, "Sunday": 0.9}

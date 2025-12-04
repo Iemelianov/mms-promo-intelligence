@@ -16,6 +16,25 @@ from ..models.schemas import Targets, Constraints, BrandRules
 
 class TargetsConfigTool:
     """Tool for accessing business targets and configuration."""
+
+    DEFAULT_TARGETS = {
+        "2024-10": {"sales_target": 1100000.0, "margin_target": 0.24, "ebit_target": 180000.0, "units_target": 2200},
+        "2024-09": {"sales_target": 950000.0, "margin_target": 0.23, "ebit_target": 150000.0, "units_target": 1800},
+    }
+
+    DEFAULT_CONSTRAINTS = Constraints(
+        max_discount=0.25,  # expressed as fraction
+        min_margin=0.18,
+        budget_limit=350000.0,
+        category_restrictions=None,
+    )
+
+    DEFAULT_BRAND_RULES = BrandRules(
+        tone_guidelines=["confident", "solution-first", "clear CTA"],
+        style_requirements=["use concise benefit-led headlines", "surface top 2 categories per scenario"],
+        mandatory_elements=["legal disclaimer", "promo window", "channels covered"],
+        prohibited_content=["overpromise on stock", "unverified claims"],
+    )
     
     def __init__(self, config_source: Optional[str] = None):
         """
@@ -25,7 +44,7 @@ class TargetsConfigTool:
             config_source: Optional configuration source (file path, DB connection, etc.)
         """
         self.config_source = config_source
-        # TODO: Initialize configuration source
+        self._config_overrides: Dict[str, Any] = {}
     
     def get_targets(
         self,
@@ -40,8 +59,12 @@ class TargetsConfigTool:
         Returns:
             Targets object with sales, margin, EBIT targets
         """
-        # TODO: Implement targets retrieval logic
-        raise NotImplementedError("get_targets not yet implemented")
+        target_values = self.DEFAULT_TARGETS.get(month)
+        if not target_values:
+            # Fall back to the latest known month values to keep the API usable
+            latest_month = sorted(self.DEFAULT_TARGETS.keys())[-1]
+            target_values = self.DEFAULT_TARGETS[latest_month]
+        return Targets(month=month, **target_values)
     
     def get_promo_constraints(
         self
@@ -52,8 +75,7 @@ class TargetsConfigTool:
         Returns:
             Constraints object with discount limits, margin thresholds, etc.
         """
-        # TODO: Implement constraints retrieval logic
-        raise NotImplementedError("get_promo_constraints not yet implemented")
+        return self.DEFAULT_CONSTRAINTS
     
     def get_brand_rules(
         self
@@ -64,8 +86,7 @@ class TargetsConfigTool:
         Returns:
             BrandRules object with brand guidelines
         """
-        # TODO: Implement brand rules retrieval logic
-        raise NotImplementedError("get_brand_rules not yet implemented")
+        return self.DEFAULT_BRAND_RULES
     
     def get_config(
         self,
@@ -80,5 +101,4 @@ class TargetsConfigTool:
         Returns:
             Configuration value or None
         """
-        # TODO: Implement config retrieval logic
-        raise NotImplementedError("get_config not yet implemented")
+        return self._config_overrides.get(key)

@@ -7,8 +7,7 @@ Main FastAPI application setup and configuration.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# TODO: Import route handlers
-# from .routes import discovery, scenarios, optimization, creative, data
+from .routes import discovery, scenarios, optimization, creative, data
 
 app = FastAPI(
     title="Promo Scenario Co-Pilot API",
@@ -25,12 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TODO: Include routers
-# app.include_router(discovery.router, prefix="/api/v1/discovery", tags=["discovery"])
-# app.include_router(scenarios.router, prefix="/api/v1/scenarios", tags=["scenarios"])
-# app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["optimization"])
-# app.include_router(creative.router, prefix="/api/v1/creative", tags=["creative"])
-# app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
+app.include_router(discovery.router, prefix="/api/v1/discovery", tags=["discovery"])
+app.include_router(scenarios.router, prefix="/api/v1/scenarios", tags=["scenarios"])
+app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["optimization"])
+app.include_router(creative.router, prefix="/api/v1/creative", tags=["creative"])
+app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
 
 
 @app.get("/")
