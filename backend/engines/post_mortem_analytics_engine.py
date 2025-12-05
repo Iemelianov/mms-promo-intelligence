@@ -14,7 +14,8 @@ Output: PostMortemReport with:
 from typing import Optional, Dict, Any
 
 from models.schemas import PromoScenario, PostMortemReport
-from ..tools.sales_data_tool import SalesDataTool
+<<<<<<< HEAD
+from tools.sales_data_tool import SalesDataTool
 
 
 class PostMortemAnalyticsEngine:

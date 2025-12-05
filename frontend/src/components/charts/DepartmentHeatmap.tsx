@@ -12,8 +12,8 @@ export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
       name: 'departments',
       children: data.map(d => ({
         name: d.name,
-        size: Math.abs(d.gap_pct),
-        gap_pct: d.gap_pct,
+        size: Math.abs(d.gap_pct || 0),
+        gap_pct: d.gap_pct ?? 0,
       })),
     },
   ]
@@ -28,8 +28,8 @@ export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
             const { x, y, width, height, name, payload } = props as any
             if (!payload || width === undefined || height === undefined) return null
 
-            const gapPct = payload.gap_pct ?? 0
-            const color = gapPct >= 0 ? '#10b981' : '#ef4444'
+            const gap = payload?.gap_pct ?? 0
+            const color = gap >= 0 ? '#10b981' : '#ef4444'
             return (
               <g>
                 <rect x={x} y={y} width={width} height={height} style={{ fill: color, opacity: 0.8 }} />

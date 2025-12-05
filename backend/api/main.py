@@ -40,7 +40,7 @@ try:
         logger.info("Phoenix observability enabled")
     else:
         logger.info("Phoenix API key not found, observability disabled")
-except Exception:
+except (ImportError, SyntaxError, ModuleNotFoundError):
     logger.warning("Phoenix not installed or incompatible, observability disabled")
 
 app = FastAPI(

@@ -6,6 +6,7 @@ Phoenix tracing and structured logging for engines and tools.
 
 import logging
 import functools
+import inspect
 import time
 from typing import Callable, Any, Optional
 from contextlib import contextmanager
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 try:
     from phoenix.trace import tracer  # type: ignore
     PHOENIX_AVAILABLE = True
-except Exception:
+except (ImportError, SyntaxError):
     PHOENIX_AVAILABLE = False
     tracer = None
 

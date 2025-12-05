@@ -13,10 +13,10 @@ Responsibilities:
 from typing import List, Optional
 from langchain.agents import AgentExecutor
 
-from ..models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
-from ..engines.creative_engine import CreativeEngine
-from ..engines.validation_engine import ValidationEngine
-from ..tools.cdp_tool import CDPTool
+from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
+from engines.creative_engine import CreativeEngine
+from engines.validation_engine import ValidationEngine
+from tools.cdp_tool import CDPTool
 
 
 class CreativeAgent:
