@@ -2,6 +2,7 @@
 Marketing_Material/
 Data/
 docs
+mms.db
 ### Python / backend
 __pycache__/
 *.py[cod]
