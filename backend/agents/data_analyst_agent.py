@@ -18,12 +18,12 @@ from typing import List, Optional, Dict, Any
 from langchain.agents import AgentExecutor
 from pandas import DataFrame
 
-from ..models.schemas import QualityReport, StorageResult, AnalysisDataset
-from ..tools.xlsb_reader import XLSBReaderTool
-from ..tools.data_cleaner import DataCleaningTool
-from ..tools.data_merger import DataMergerTool
-from ..tools.data_validator import DataValidationTool
-from ..tools.db_loader import DatabaseLoaderTool
+from models.schemas import QualityReport, StorageResult, AnalysisDataset
+from tools.xlsb_reader import XLSBReaderTool
+from tools.data_cleaner import DataCleaningTool
+from tools.data_merger import DataMergerTool
+from tools.data_validator import DataValidationTool
+from tools.db_loader import DatabaseLoaderTool
 
 
 class DataAnalystAgent:
