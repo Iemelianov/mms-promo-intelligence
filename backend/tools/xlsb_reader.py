@@ -123,4 +123,3 @@ class XLSBReaderTool:
         return results
 
 
-

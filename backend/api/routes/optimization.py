@@ -4,14 +4,12 @@ Optimization API Routes
 Endpoints for scenario optimization.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends, Body
+from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import date
-import uuid
 
 from models.schemas import PromoScenario, FrontierData, RankedScenarios, ScenarioKPI, DateRange
 from middleware.rate_limit import get_rate_limit
-from middleware.auth import get_current_user, require_analyst
+from middleware.auth import get_current_user
 from middleware.errors import NotFoundError, ProcessingError
 from engines.scenario_optimization_engine import ScenarioOptimizationEngine
 from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
@@ -23,7 +21,7 @@ from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
 from tools.context_data_tool import ContextDataTool
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 # Initialize engines and tools
 sales_tool = SalesDataTool()
@@ -40,19 +38,13 @@ optimization_engine = ScenarioOptimizationEngine(
 context_engine = ContextEngine(context_tool=context_tool)
 
 
-def _ensure_scenario_id(scenario: PromoScenario) -> str:
-    """Return a non-empty scenario id, generating one when missing."""
-    if not scenario.id:
-        scenario.id = str(uuid.uuid4())
-    return scenario.id
-
-
 @router.post("/optimize")
 @get_rate_limit("optimization")
 async def optimize_scenarios(
-    request: Request,
-    payload: Dict[str, Any] = Body(...),
-    current_user = Depends(require_analyst)
+    brief: str,
+    constraints: Optional[Dict[str, Any]] = None,
+    request: Request = None,
+    current_user = Depends(get_current_user)
 ) -> List[PromoScenario]:
     """
     Generate optimized scenarios.
@@ -65,31 +57,21 @@ async def optimize_scenarios(
         List of optimized PromoScenario objects
     """
     try:
-        brief = payload.get("brief", "")
-        constraints = payload.get("constraints", {}) or {}
-        # Return simple stubbed scenarios honoring inputs
-        base = PromoScenario(
-            id="scenario-1",
-            name=brief or "Optimized Scenario",
-            description=brief or "Generated scenario",
-            date_range=DateRange(start_date=date.today(), end_date=date.today()),
-            departments=constraints.get("departments", ["TV"]),
-            channels=constraints.get("channels", ["online"]),
-            discount_percentage=float(constraints.get("max_discount", 20.0)),
-            segments=None,
-            metadata={}
-        )
-        return [base, base.model_copy(update={"id": "scenario-2", "discount_percentage": max(5.0, base.discount_percentage - 5)})]
+        # Generate candidate scenarios
+        candidates = optimization_engine.generate_candidate_scenarios(brief, constraints)
+        
+        # Evaluate and rank them
+        objectives = constraints.get("objectives", {"sales": 0.6, "margin": 0.4}) if constraints else {"sales": 0.6, "margin": 0.4}
+        optimized = optimization_engine.optimize_scenarios(candidates, objectives, constraints)
+        
+        return optimized
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error optimizing scenarios: {str(exc)}") from exc
 
 
 @router.post("/frontier")
-@get_rate_limit("standard")
 async def calculate_frontier(
-    request: Request,
-    scenarios: List[PromoScenario] = Body(...),
-    current_user=Depends(require_analyst),
+    scenarios: List[PromoScenario]
 ) -> FrontierData:
     """
     Calculate efficient frontier.
@@ -104,10 +86,42 @@ async def calculate_frontier(
         raise HTTPException(status_code=400, detail="At least one scenario is required")
     
     try:
-        coordinates: List[Tuple[float, float]] = []
-        for idx, _ in enumerate(scenarios):
-            coordinates.append((100000.0 + idx * 10000, 20000.0 + idx * 2000))
-        pareto_optimal = [i == 0 for i in range(len(scenarios))]
+        # Evaluate all scenarios
+        kpis: List[ScenarioKPI] = []
+        for scenario in scenarios:
+            baseline = baseline_engine.calculate_baseline(
+                (scenario.date_range.start_date, scenario.date_range.end_date)
+            )
+            uplift_model = uplift_engine.build_uplift_model({})
+            context = context_engine.build_context(
+                geo="DE",
+                date_range=DateRange(
+                    start_date=scenario.date_range.start_date,
+                    end_date=scenario.date_range.end_date
+                )
+            )
+            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            kpis.append(kpi)
+        
+        # Build coordinates (sales, margin) for frontier
+        coordinates: List[Tuple[float, float]] = [
+            (kpi.total_sales, kpi.total_margin) for kpi in kpis
+        ]
+        
+        # Identify Pareto-optimal scenarios (scenarios that are not dominated)
+        pareto_optimal: List[bool] = []
+        for i, kpi in enumerate(kpis):
+            is_optimal = True
+            for j, other_kpi in enumerate(kpis):
+                if i != j:
+                    # Check if other scenario dominates this one
+                    if (other_kpi.total_sales >= kpi.total_sales and 
+                        other_kpi.total_margin >= kpi.total_margin and
+                        (other_kpi.total_sales > kpi.total_sales or other_kpi.total_margin > kpi.total_margin)):
+                        is_optimal = False
+                        break
+            pareto_optimal.append(is_optimal)
+        
         return FrontierData(
             scenarios=scenarios,
             coordinates=coordinates,
@@ -118,11 +132,9 @@ async def calculate_frontier(
 
 
 @router.post("/rank")
-@get_rate_limit("standard")
 async def rank_scenarios(
-    request: Request,
-    payload: Dict[str, Any] = Body(...),
-    current_user=Depends(require_analyst),
+    scenarios: List[PromoScenario],
+    weights: Optional[Dict[str, float]] = None
 ) -> RankedScenarios:
     """
     Rank scenarios by objectives.
@@ -134,21 +146,63 @@ async def rank_scenarios(
     Returns:
         RankedScenarios object
     """
-    scenarios_data = payload.get("scenarios") if isinstance(payload, dict) else None
-    weights = payload.get("weights", {}) if isinstance(payload, dict) else {}
-    scenarios = [PromoScenario(**s) for s in scenarios_data] if scenarios_data else []
     if not scenarios:
         raise HTTPException(status_code=400, detail="At least one scenario is required")
     
     try:
+        # Default weights
         weights = weights or {"sales": 0.6, "margin": 0.4}
-        ranked_scenarios: List[Tuple[PromoScenario, float]] = []
-        for idx, scenario in enumerate(sorted(scenarios, key=lambda s: s.discount_percentage, reverse=True)):
-            scenario_id = _ensure_scenario_id(scenario)
-            ranked_scenarios.append((scenario, float(idx + 1)))
-        rationale = {_ensure_scenario_id(s): "Ranked by discount percentage" for s, _ in ranked_scenarios}
+        
+        # Normalize weights
+        total_weight = sum(weights.values())
+        if total_weight > 0:
+            weights = {k: v / total_weight for k, v in weights.items()}
+        
+        # Evaluate all scenarios
+        scenario_scores: List[Tuple[PromoScenario, float]] = []
+        
+        for scenario in scenarios:
+            baseline = baseline_engine.calculate_baseline(
+                (scenario.date_range.start_date, scenario.date_range.end_date)
+            )
+            uplift_model = uplift_engine.build_uplift_model({})
+            context = context_engine.build_context(
+                geo="DE",
+                date_range=DateRange(
+                    start_date=scenario.date_range.start_date,
+                    end_date=scenario.date_range.end_date
+                )
+            )
+            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            
+            # Calculate composite score
+            # Normalize sales and margin to 0-1 scale (using max values as reference)
+            # For MVP, use simple scoring
+            sales_score = kpi.total_sales / 1000000.0  # Normalize to millions
+            margin_score = (kpi.total_margin / kpi.total_sales) if kpi.total_sales > 0 else 0.0
+            
+            composite_score = (
+                weights.get("sales", 0.5) * sales_score +
+                weights.get("margin", 0.5) * margin_score
+            )
+            
+            scenario_scores.append((scenario, composite_score))
+        
+        # Sort by score (descending)
+        scenario_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        # Generate rationale
+        rationale: Dict[str, str] = {}
+        for i, (scenario, score) in enumerate(scenario_scores):
+            rank = i + 1
+            rationale[scenario.id or f"scenario_{i}"] = (
+                f"Rank {rank}: Score {score:.3f} "
+                f"(Sales weight: {weights.get('sales', 0.5):.2f}, "
+                f"Margin weight: {weights.get('margin', 0.5):.2f})"
+            )
+        
         return RankedScenarios(
-            ranked_scenarios=ranked_scenarios,
+            ranked_scenarios=scenario_scores,
             rationale=rationale
         )
     except Exception as exc:  # noqa: BLE001

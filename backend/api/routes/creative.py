@@ -4,18 +4,16 @@ Creative API Routes
 Endpoints for creative brief and asset generation.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Body, Request
+from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from datetime import date, timedelta
 
 from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
-from middleware.auth import get_current_user, require_analyst
-from middleware.rate_limit import get_rate_limit
 from engines.creative_engine import CreativeEngine
 from tools.targets_config_tool import TargetsConfigTool
 from tools.cdp_tool import CDPTool
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 # Initialize engines and tools
 config_tool = TargetsConfigTool()
@@ -24,11 +22,8 @@ creative_engine = CreativeEngine(cdp_tool=cdp_tool, config_tool=config_tool)
 
 
 @router.post("/finalize")
-@get_rate_limit("standard")
 async def finalize_campaign(
-    request: Request,
-    scenarios: List[PromoScenario] = Body(...),
-    current_user=Depends(require_analyst),
+    scenarios: List[PromoScenario]
 ) -> CampaignPlan:
     """
     Finalize selected scenarios into campaign plan.
@@ -85,11 +80,9 @@ async def finalize_campaign(
 
 
 @router.post("/brief")
-@get_rate_limit("standard")
 async def generate_brief(
-    request: Request,
-    payload: dict = Body(...),
-    current_user=Depends(require_analyst),
+    scenario: PromoScenario,
+    segments: Optional[List[str]] = None
 ) -> CreativeBrief:
     """
     Generate creative brief from scenario.
@@ -102,35 +95,18 @@ async def generate_brief(
         CreativeBrief object
     """
     try:
-        is_dict_payload = isinstance(payload, dict)
-        scenario_data = payload.get("scenario") if is_dict_payload else payload
-        segments = payload.get("segments") if is_dict_payload else None
-        
-        # Ensure scenario_data is converted to PromoScenario object
-        if isinstance(scenario_data, PromoScenario):
-            scenario = scenario_data
-        elif isinstance(scenario_data, dict):
-            scenario = PromoScenario(**scenario_data)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="scenario must be a dict or PromoScenario object"
-            )
-        
-        return creative_engine.generate_creative_brief(scenario=scenario, segments=segments)
-    except HTTPException:
-        # Re-raise HTTPException as-is (for validation errors)
-        raise
+        brief = creative_engine.generate_creative_brief(
+            scenario=scenario,
+            segments=segments
+        )
+        return brief
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating brief: {str(exc)}") from exc
 
 
 @router.post("/assets")
-@get_rate_limit("standard")
 async def generate_assets(
-    request: Request,
-    brief: CreativeBrief,
-    current_user=Depends(require_analyst),
+    brief: CreativeBrief
 ) -> List[AssetSpec]:
     """
     Generate asset specifications from creative brief.

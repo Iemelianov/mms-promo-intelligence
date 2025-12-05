@@ -10,8 +10,6 @@ from slowapi.errors import RateLimitExceeded
 from fastapi import Request, HTTPException
 from typing import Callable
 import os
-import inspect
-import functools
 
 # Initialize rate limiter
 limiter = Limiter(
@@ -30,47 +28,9 @@ RATE_LIMITS = {
 
 
 def get_rate_limit(limit_type: str = "standard") -> Callable:
-    """Return a rate-limit decorator, with opt-out for tests/dev."""
-    disable_flag = os.getenv("DISABLE_RATE_LIMIT", "").lower()
-    enable_flag = os.getenv("ENABLE_RATE_LIMIT", "").lower()
-    disable = (
-        (disable_flag == "true" and enable_flag != "true")
-        or ("PYTEST_CURRENT_TEST" in os.environ and enable_flag != "true")
-        or ("PYTEST_DISABLE_PLUGIN_AUTOLOAD" in os.environ and enable_flag != "true")
-    )
+    """Get rate limit decorator for specific limit type."""
     limit = RATE_LIMITS.get(limit_type, RATE_LIMITS["standard"])
-    if disable:
-        def decorator(func: Callable) -> Callable:
-            is_async = inspect.iscoroutinefunction(func)
-
-            if is_async:
-                @functools.wraps(func)
-                async def wrapper(*args, **kwargs):
-                    return await func(*args, **kwargs)
-            else:
-                @functools.wraps(func)
-                def wrapper(*args, **kwargs):
-                    return func(*args, **kwargs)
-
-            return wrapper
-
-        return decorator
-    def decorator(func: Callable) -> Callable:
-        is_async = inspect.iscoroutinefunction(func)
-
-        if is_async:
-            @limiter.limit(limit)
-            @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
-                return await func(*args, **kwargs)
-        else:
-            @limiter.limit(limit)
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                return func(*args, **kwargs)
-
-        return wrapper
-    return decorator
+    return limiter.limit(limit)
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):

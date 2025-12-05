@@ -14,9 +14,9 @@ Output: PromoContext with:
 from typing import Optional, Tuple
 from datetime import date
 
-from models.schemas import PromoContext, DateRange
-from tools.context_data_tool import ContextDataTool
-from tools.weather_tool import WeatherTool
+from ..models.schemas import PromoContext, DateRange
+from ..tools.context_data_tool import ContextDataTool
+from ..tools.weather_tool import WeatherTool
 
 
 class ContextEngine:
@@ -52,8 +52,8 @@ class ContextEngine:
         Returns:
             PromoContext with events, weather, seasonality
         """
-        from tools.context_data_tool import ContextDataTool
-        from tools.weather_tool import WeatherTool
+        from ..tools.context_data_tool import ContextDataTool
+        from ..tools.weather_tool import WeatherTool
         
         context_tool = self.context_tool or ContextDataTool()
         weather_tool = self.weather_tool

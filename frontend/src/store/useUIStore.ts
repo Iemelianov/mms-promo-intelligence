@@ -13,4 +13,3 @@ export const useUIStore = create<UIState>((set) => ({
   toast: undefined,
   setToast: (toast) => set({ toast }),
 }))
-

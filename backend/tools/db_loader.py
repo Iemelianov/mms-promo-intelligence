@@ -170,15 +170,17 @@ class DatabaseLoaderTool:
 
             if upsert and conflict_keys:
                 if self.database_url.startswith('duckdb://'):
-                    # DuckDB: use native connection and temp table with delete-then-insert
-                    conn = self.engine
-                    conn.register("df_temp", df_load)
-                    conn.execute("CREATE OR REPLACE TEMP TABLE tmp_load AS SELECT * FROM df_temp;")
-                    predicate = " AND ".join([f"{table_name}.{col}=s.{col}" for col in conflict_keys])
-                    # DuckDB does not allow alias for target, so reference table directly and alias via USING
-                    conn.execute(f"DELETE FROM {table_name} USING tmp_load AS s WHERE {predicate};")
-                    conn.execute(f"INSERT INTO {table_name} SELECT * FROM tmp_load;")
-                    conn.execute("DROP TABLE IF EXISTS tmp_load;")
+                    # DuckDB MERGE
+                    self.engine.register('df_temp', df_load)
+                    conflict = ", ".join(conflict_keys)
+                    assignments = ", ".join([f"{col}=excluded.{col}" for col in df_load.columns])
+                    merge_sql = f"""
+                    CREATE OR REPLACE TEMP TABLE tmp_load AS SELECT * FROM df_temp;
+                    INSERT INTO {table_name}
+                    SELECT * FROM tmp_load
+                    ON CONFLICT ({conflict}) DO UPDATE SET {assignments};
+                    """
+                    self.engine.execute(merge_sql)
                 else:
                     # PostgreSQL upsert via ON CONFLICT
                     with self.engine.begin() as conn:
@@ -196,9 +198,7 @@ class DatabaseLoaderTool:
                         conn.execute(text(upsert_sql))
             else:
                 if self.database_url.startswith('duckdb://'):
-                    conn = self.engine
-                    conn.register("df_temp", df_load)
-                    conn.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp;")
+                    self.engine.execute(f"INSERT INTO {table_name} SELECT * FROM df_load")
                 else:
                     df_load.to_sql(
                         table_name,
@@ -256,3 +256,5 @@ class DatabaseLoaderTool:
             else:
                 self.engine.dispose()
             logger.info("Database connection closed")
+
+

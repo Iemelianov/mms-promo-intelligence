@@ -306,4 +306,3 @@ class PromoCatalogTool:
         self._promo_cache = campaigns
 
 
-

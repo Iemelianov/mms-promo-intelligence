@@ -41,10 +41,7 @@ async def create_api_key(
     api_key = f"pk_{secrets.token_urlsafe(32)}"
     
     # Calculate expiration
-    expires_in_days = request.expires_in_days if request.expires_in_days is not None else 90
-    if expires_in_days <= 0:
-        raise HTTPException(status_code=400, detail="expires_in_days must be positive")
-    expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+    expires_at = datetime.utcnow() + timedelta(days=request.expires_in_days)
     
     # TODO: Store API key in database with user association
     # For now, return the key (in production, hash and store)

@@ -7,10 +7,6 @@ Main FastAPI application setup and configuration.
 import os
 import logging
 import uuid
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -18,7 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel, ValidationError
 
-from .routes import discovery, scenarios, optimization, creative, data, auth, postmortem, chat
+from .routes import discovery, scenarios, optimization, creative, data, auth
 from middleware.errors import (
     APIError,
     api_error_handler,
@@ -27,8 +23,6 @@ from middleware.errors import (
     general_exception_handler
 )
 from middleware.rate_limit import limiter, rate_limit_exceeded_handler
-from db.base import Base
-from db.session import engine
 
 # Setup logging
 logging.basicConfig(
@@ -46,8 +40,8 @@ try:
         logger.info("Phoenix observability enabled")
     else:
         logger.info("Phoenix API key not found, observability disabled")
-except (ImportError, ModuleNotFoundError, SyntaxError):
-    logger.warning("Phoenix not available or incompatible, observability disabled")
+except ImportError:
+    logger.warning("Phoenix not installed, observability disabled")
 
 app = FastAPI(
     title="Promo Scenario Co-Pilot API",
@@ -99,11 +93,6 @@ def validate_settings():
 async def startup_event():
     """Startup tasks."""
     validate_settings()
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables ensured")
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(f"Could not initialize database tables: {exc}")
 
 # Request ID and logging middleware
 @app.middleware("http")
@@ -152,8 +141,6 @@ app.include_router(scenarios.router, prefix="/api/v1/scenarios", tags=["scenario
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["optimization"])
 app.include_router(creative.router, prefix="/api/v1/creative", tags=["creative"])
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
-app.include_router(postmortem.router, prefix="/api/v1/postmortem", tags=["postmortem"])
-app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 
 @app.get("/")
@@ -166,3 +153,4 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+

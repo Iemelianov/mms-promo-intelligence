@@ -14,7 +14,7 @@ Methodology:
 
 from typing import List, Optional
 
-from models.schemas import PostMortemReport, UpliftModel
+from ..models.schemas import PostMortemReport, UpliftModel
 
 
 class LearningEngine:
@@ -64,5 +64,4 @@ class LearningEngine:
         """
         # TODO: Implement adjustment calculation logic
         raise NotImplementedError("calculate_model_adjustments not yet implemented")
-
 

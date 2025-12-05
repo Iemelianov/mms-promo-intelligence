@@ -13,29 +13,16 @@ Output: ScenarioKPI with:
 from typing import Optional, Dict
 from datetime import timedelta
 
-try:
-    # Prefer absolute imports when backend is on sys.path
-    from models.schemas import (
-        PromoScenario,
-        ScenarioKPI,
-        BaselineForecast,
-        UpliftModel,
-        PromoContext,
-    )
-    from engines.forecast_baseline_engine import ForecastBaselineEngine
-    from engines.uplift_elasticity_engine import UpliftElasticityEngine
-    from middleware.observability import trace_function, log_metric, log_event
-except ImportError:  # pragma: no cover - fallback for package-relative execution
-    from ..models.schemas import (
-        PromoScenario,
-        ScenarioKPI,
-        BaselineForecast,
-        UpliftModel,
-        PromoContext,
-    )
-    from .forecast_baseline_engine import ForecastBaselineEngine
-    from .uplift_elasticity_engine import UpliftElasticityEngine
-    from ..middleware.observability import trace_function, log_metric, log_event
+from ..models.schemas import (
+    PromoScenario,
+    ScenarioKPI,
+    BaselineForecast,
+    UpliftModel,
+    PromoContext
+)
+from ..engines.forecast_baseline_engine import ForecastBaselineEngine
+from ..engines.uplift_elasticity_engine import UpliftElasticityEngine
+from ..middleware.observability import trace_function, log_metric, log_event
 
 
 class ScenarioEvaluationEngine:
@@ -76,6 +63,8 @@ class ScenarioEvaluationEngine:
         Returns:
             ScenarioKPI with sales, margin, EBIT, units and breakdowns
         """
+        from ..engines.uplift_elasticity_engine import UpliftElasticityEngine
+        
         # Initialize uplift engine if not provided
         uplift_engine = self.uplift_engine or UpliftElasticityEngine()
         uplift_engine._cached_model = uplift_model
@@ -183,3 +172,4 @@ class ScenarioEvaluationEngine:
         log_event("scenario.evaluated", {"scenario_id": scenario.id or "unknown", "sales": total_sales})
         
         return kpi
+

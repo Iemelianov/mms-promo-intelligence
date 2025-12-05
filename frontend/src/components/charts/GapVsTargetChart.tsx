@@ -26,4 +26,3 @@ export default function GapVsTargetChart({ data }: { data: Point[] }) {
     </div>
   )
 }
-
