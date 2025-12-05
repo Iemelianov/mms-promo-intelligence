@@ -1,14 +1,14 @@
 import { ScenarioKPI } from '../types'
-import { formatNumber, formatPercent } from '../utils/format'
+import { formatNumber, formatPercent, formatCurrency } from '../utils/format'
 
 export default function KPIBreakdown({ kpi }: { kpi?: Partial<ScenarioKPI> }) {
   if (!kpi) return null
   return (
     <div className="space-y-4 text-sm">
       <div className="space-y-2">
-        <div className="flex justify-between"><span>Sales</span><span className="font-semibold">{formatNumber(kpi.total_sales)}</span></div>
-        <div className="flex justify-between"><span>Margin</span><span className="font-semibold">{formatNumber(kpi.total_margin)}</span></div>
-        <div className="flex justify-between"><span>EBIT</span><span className="font-semibold">{formatNumber(kpi.total_ebit)}</span></div>
+        <div className="flex justify-between"><span>Sales</span><span className="font-semibold">{formatCurrency(kpi.total_sales)}</span></div>
+        <div className="flex justify-between"><span>Margin</span><span className="font-semibold">{formatCurrency(kpi.total_margin)}</span></div>
+        <div className="flex justify-between"><span>EBIT</span><span className="font-semibold">{formatCurrency(kpi.total_ebit)}</span></div>
         <div className="flex justify-between"><span>Units</span><span className="font-semibold">{formatNumber(kpi.total_units)}</span></div>
       </div>
 

@@ -3,7 +3,7 @@ import { usePostmortemAnalyze } from '../hooks/usePostmortem'
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { notifyError, notifySuccess } from '../lib/toast'
-import { formatNumber, formatPercent } from '../utils/format'
+import { formatNumber, formatPercent, formatCurrency, formatDate } from '../utils/format'
 import { EmptyState, LoadingState } from '../components/Status'
 
 export default function PostMortemScreen() {
@@ -74,14 +74,15 @@ export default function PostMortemScreen() {
       {report && (
         <div className="bg-white rounded-lg shadow p-6 space-y-3 text-sm">
           <div className="font-semibold">Forecast vs Actual</div>
+          <div className="text-xs text-gray-600">Period: {formatDate(report.period?.start_date)} - {formatDate(report.period?.end_date)}</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-gray-600">Forecast Sales</div>
-              <div className="font-semibold">{formatNumber(report.forecast_kpi.total_sales)}</div>
+              <div className="font-semibold">{formatCurrency(report.forecast_kpi.total_sales)}</div>
             </div>
             <div>
               <div className="text-gray-600">Actual Sales</div>
-              <div className="font-semibold">{formatNumber((report as any).actual_kpi?.total_sales)}</div>
+              <div className="font-semibold">{formatCurrency((report as any).actual_kpi?.total_sales)}</div>
             </div>
             <div>
               <div className="text-gray-600">Forecast Margin %</div>
