@@ -8,8 +8,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import json
 
 Base = declarative_base()
+
+
+def ensure_metadata_column(engine):
+    """Backward-compatibility shim (no-op for current schema)."""
+    # Historically used to rename reserved metadata columns; kept for safety.
+    return
 
 
 class SalesAggregated(Base):
@@ -103,3 +110,44 @@ class ScenarioKPI(Base):
     calculated_at = Column(DateTime, default=datetime.utcnow, index=True)
     
     scenario = relationship("Scenario", backref="kpis")
+
+
+class ValidationReportDB(Base):
+    """Stored validation reports for scenarios."""
+    __tablename__ = "validation_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scenario_id = Column(String, ForeignKey("scenarios.id"), nullable=False, index=True)
+    is_valid = Column(Boolean, default=False, nullable=False)
+    issues = Column(Text)  # JSON array
+    fixes = Column(Text)   # JSON array
+    checks_passed = Column(Text)  # JSON object
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    scenario = relationship("Scenario", backref="validation_reports")
+
+
+class CreativeBriefDB(Base):
+    """Stored creative briefs and assets."""
+    __tablename__ = "creative_briefs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scenario_id = Column(String, ForeignKey("scenarios.id"), nullable=False, index=True)
+    brief = Column(Text)   # JSON
+    assets = Column(Text)  # JSON
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    scenario = relationship("Scenario", backref="creative_briefs")
+
+
+class ApiKey(Base):
+    """Stored API keys (hashed)."""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    key_hash = Column(String(512), nullable=False, unique=True)
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_by = Column(String(255))

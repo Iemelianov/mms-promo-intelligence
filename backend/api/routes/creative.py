@@ -4,15 +4,19 @@ Creative API Routes
 Endpoints for creative brief and asset generation.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import date, timedelta
+import json
+from sqlalchemy.orm import Session
 
 from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
 from engines.creative_engine import CreativeEngine
 from tools.targets_config_tool import TargetsConfigTool
 from tools.cdp_tool import CDPTool
 from .scenarios import SCENARIO_STORE
+from db.session import get_session
+from db.base import CreativeBriefDB
 
 router = APIRouter()
 
@@ -83,7 +87,8 @@ async def finalize_campaign(
 @router.post("/brief")
 async def generate_brief(
     scenario: PromoScenario,
-    segments: Optional[List[str]] = None
+    segments: Optional[List[str]] = None,
+    db: Session = Depends(get_session)
 ) -> CreativeBrief:
     """
     Generate creative brief from scenario.
@@ -100,6 +105,15 @@ async def generate_brief(
             scenario=scenario,
             segments=segments
         )
+        # Persist brief snapshot
+        db.add(
+            CreativeBriefDB(
+                scenario_id=scenario.id,
+                brief=json.dumps(brief.model_dump()),
+                assets=None,
+            )
+        )
+        db.commit()
         return brief
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating brief: {str(exc)}") from exc
@@ -107,7 +121,8 @@ async def generate_brief(
 
 @router.post("/assets")
 async def generate_assets(
-    brief: CreativeBrief
+    brief: CreativeBrief,
+    db: Session = Depends(get_session)
 ) -> List[AssetSpec]:
     """
     Generate asset specifications from creative brief.
@@ -120,13 +135,24 @@ async def generate_assets(
     """
     try:
         assets = creative_engine.generate_asset_specs(brief)
+        db.add(
+            CreativeBriefDB(
+                scenario_id=brief.scenario_id,
+                brief=json.dumps(brief.model_dump()),
+                assets=json.dumps([a.model_dump() for a in assets]),
+            )
+        )
+        db.commit()
         return assets
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating assets: {str(exc)}") from exc
 
 
 @router.post("/generate")
-async def generate_creative_package(payload: dict) -> dict:
+async def generate_creative_package(
+    payload: dict,
+    db: Session = Depends(get_session)
+) -> dict:
     """
     Docs-friendly endpoint: generate creative brief and assets for scenarios.
     """
@@ -155,5 +181,14 @@ async def generate_creative_package(payload: dict) -> dict:
         assets = creative_engine.generate_asset_specs(brief)
         filtered_assets = [a for a in assets if a.asset_type in asset_types] or assets
         briefs.append({"scenario_id": scenario_id, "creative_brief": brief, "assets": filtered_assets})
+
+        db.add(
+            CreativeBriefDB(
+                scenario_id=scenario_id,
+                brief=json.dumps(brief.model_dump()),
+                assets=json.dumps([a.model_dump() for a in filtered_assets]),
+            )
+        )
+    db.commit()
 
     return {"briefs": briefs}
