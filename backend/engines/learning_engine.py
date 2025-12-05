@@ -12,7 +12,8 @@ Methodology:
 - Weight recent data more heavily
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
+from datetime import datetime
 
 from models.schemas import PostMortemReport, UpliftModel
 
@@ -39,11 +40,34 @@ class LearningEngine:
         Returns:
             Updated UpliftModel with adjusted coefficients
         """
-        # TODO: Implement model update logic
-        # - Compare forecasted vs actual uplift
-        # - Adjust coefficients by category/channel
-        # - Weight recent data more heavily
-        raise NotImplementedError("update_uplift_model not yet implemented")
+        if not post_mortems:
+            return current_model
+
+        # Simple global adjustment: average absolute sales_pct_error to scale coefficients.
+        errors: List[float] = []
+        for pm in post_mortems:
+            sales_err = pm.forecast_accuracy.get("sales_pct_error", 0)
+            if sales_err is not None:
+                errors.append(sales_err)
+
+        if not errors:
+            return current_model
+
+        mean_err = sum(errors) / len(errors)
+        # Clamp adjustment factor between 0.8 and 1.2 to avoid big swings.
+        adjust = max(0.8, min(1.2, 1 - mean_err))
+
+        new_coeffs: Dict[str, Dict[str, float]] = {}
+        for dept, chans in current_model.coefficients.items():
+            new_coeffs[dept] = {}
+            for ch, val in chans.items():
+                new_coeffs[dept][ch] = max(0.5, min(3.0, val * adjust))
+
+        return UpliftModel(
+            coefficients=new_coeffs,
+            version=f"{current_model.version}-adj",
+            last_updated=datetime.now()
+        )
     
     def calculate_model_adjustments(
         self,
@@ -62,6 +86,16 @@ class LearningEngine:
         Returns:
             Dictionary with adjustment factors
         """
-        # TODO: Implement adjustment calculation logic
-        raise NotImplementedError("calculate_model_adjustments not yet implemented")
+        errors: List[float] = []
+        for pm in post_mortems:
+            sales_err = pm.forecast_accuracy.get("sales_pct_error", 0)
+            if sales_err is not None:
+                errors.append(sales_err)
+
+        if not errors:
+            return {"adjustment": 1.0}
+
+        mean_err = sum(errors) / len(errors)
+        adjust = max(0.8, min(1.2, 1 - mean_err))
+        return {"adjustment": adjust}
 

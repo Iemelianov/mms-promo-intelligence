@@ -14,7 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel, ValidationError
 
-from .routes import discovery, scenarios, optimization, creative, data, auth
+from .routes import discovery, scenarios, optimization, creative, data, auth, postmortem
 from middleware.errors import (
     APIError,
     api_error_handler,
@@ -144,6 +144,7 @@ app.include_router(scenarios.router, prefix="/api/v1/scenarios", tags=["scenario
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["optimization"])
 app.include_router(creative.router, prefix="/api/v1/creative", tags=["creative"])
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
+app.include_router(postmortem.router, prefix="/api/v1/postmortem", tags=["postmortem"])
 
 
 @app.get("/")
