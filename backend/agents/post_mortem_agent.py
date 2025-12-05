@@ -13,10 +13,10 @@ Responsibilities:
 from typing import List, Optional
 from langchain.agents import AgentExecutor
 
-from ..models.schemas import PromoScenario, PostMortemReport, UpliftModel, Insights
-from ..engines.post_mortem_analytics_engine import PostMortemAnalyticsEngine
-from ..engines.learning_engine import LearningEngine
-from ..tools.sales_data_tool import SalesDataTool
+from models.schemas import PromoScenario, PostMortemReport, UpliftModel, Insights
+from engines.post_mortem_analytics_engine import PostMortemAnalyticsEngine
+from engines.learning_engine import LearningEngine
+from tools.sales_data_tool import SalesDataTool
 
 
 class PostMortemAgent:

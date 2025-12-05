@@ -13,16 +13,16 @@ Output: ScenarioKPI with:
 from typing import Optional, Dict
 from datetime import timedelta
 
-from ..models.schemas import (
+from models.schemas import (
     PromoScenario,
     ScenarioKPI,
     BaselineForecast,
     UpliftModel,
     PromoContext
 )
-from ..engines.forecast_baseline_engine import ForecastBaselineEngine
-from ..engines.uplift_elasticity_engine import UpliftElasticityEngine
-from ..middleware.observability import trace_function, log_metric, log_event
+from engines.forecast_baseline_engine import ForecastBaselineEngine
+from engines.uplift_elasticity_engine import UpliftElasticityEngine
+from middleware.observability import trace_function, log_metric, log_event
 
 
 class ScenarioEvaluationEngine:
@@ -63,7 +63,7 @@ class ScenarioEvaluationEngine:
         Returns:
             ScenarioKPI with sales, margin, EBIT, units and breakdowns
         """
-        from ..engines.uplift_elasticity_engine import UpliftElasticityEngine
+        from engines.uplift_elasticity_engine import UpliftElasticityEngine
         
         # Initialize uplift engine if not provided
         uplift_engine = self.uplift_engine or UpliftElasticityEngine()

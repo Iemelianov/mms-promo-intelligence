@@ -14,11 +14,11 @@ from typing import List, Optional, Dict, Any
 from langchain.agents import AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 
-from ..models.schemas import PromoScenario, ScenarioKPI, ComparisonReport, ValidationReport
-from ..engines.scenario_evaluation_engine import ScenarioEvaluationEngine
-from ..engines.validation_engine import ValidationEngine
-from ..engines.forecast_baseline_engine import ForecastBaselineEngine
-from ..engines.uplift_elasticity_engine import UpliftElasticityEngine
+from models.schemas import PromoScenario, ScenarioKPI, ComparisonReport, ValidationReport
+from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
+from engines.validation_engine import ValidationEngine
+from engines.forecast_baseline_engine import ForecastBaselineEngine
+from engines.uplift_elasticity_engine import UpliftElasticityEngine
 
 
 class ScenarioLabAgent:
