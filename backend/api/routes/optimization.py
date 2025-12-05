@@ -20,6 +20,8 @@ from engines.validation_engine import ValidationEngine
 from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
 from tools.context_data_tool import ContextDataTool
+from agents.optimization_agent import OptimizationAgent
+from agents.scenario_lab_agent import ScenarioLabAgent
 
 router = APIRouter()
 
@@ -36,6 +38,18 @@ optimization_engine = ScenarioOptimizationEngine(
     validation_engine=validation_engine
 )
 context_engine = ContextEngine(context_tool=context_tool)
+scenario_agent = ScenarioLabAgent(
+    evaluation_engine=evaluation_engine,
+    validation_engine=validation_engine,
+    forecast_engine=baseline_engine,
+    uplift_engine=uplift_engine,
+    context_engine=context_engine,
+)
+optimization_agent = OptimizationAgent(
+    optimization_engine=optimization_engine,
+    evaluation_engine=evaluation_engine,
+    validation_engine=validation_engine,
+)
 
 
 @router.post("/optimize")
@@ -55,23 +69,11 @@ async def optimize_scenarios(
         constraints = payload.get("constraints") or {}
         num_scenarios = int(payload.get("num_scenarios", 3))
 
-        candidates = optimization_engine.generate_candidate_scenarios(brief, constraints)[: max(num_scenarios, 1)]
-        optimized = optimization_engine.optimize_scenarios(candidates, objectives, constraints)
+        optimized = optimization_agent.optimize_scenarios(brief, constraints)[: max(num_scenarios, 1)]
 
         results = []
         for rank, scenario in enumerate(optimized, start=1):
-            baseline = baseline_engine.calculate_baseline(
-                (scenario.date_range.start_date, scenario.date_range.end_date)
-            )
-            uplift_model = uplift_engine.build_uplift_model({})
-            context = context_engine.build_context(
-                geo="DE",
-                date_range=DateRange(
-                    start_date=scenario.date_range.start_date,
-                    end_date=scenario.date_range.end_date
-                )
-            )
-            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            kpi = scenario_agent.evaluate_scenario(scenario, geo="DE")
             results.append(
                 {
                     "scenario": scenario,
@@ -119,18 +121,7 @@ async def calculate_frontier(
         # Evaluate all scenarios
         kpis: List[ScenarioKPI] = []
         for scenario in scenarios:
-            baseline = baseline_engine.calculate_baseline(
-                (scenario.date_range.start_date, scenario.date_range.end_date)
-            )
-            uplift_model = uplift_engine.build_uplift_model({})
-            context = context_engine.build_context(
-                geo="DE",
-                date_range=DateRange(
-                    start_date=scenario.date_range.start_date,
-                    end_date=scenario.date_range.end_date
-                )
-            )
-            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            kpi = scenario_agent.evaluate_scenario(scenario, geo="DE")
             kpis.append(kpi)
         
         # Build coordinates (sales, margin) for frontier
@@ -210,18 +201,7 @@ async def rank_scenarios(
         scenario_scores: List[Tuple[PromoScenario, float]] = []
         
         for scenario in scenarios:
-            baseline = baseline_engine.calculate_baseline(
-                (scenario.date_range.start_date, scenario.date_range.end_date)
-            )
-            uplift_model = uplift_engine.build_uplift_model({})
-            context = context_engine.build_context(
-                geo="DE",
-                date_range=DateRange(
-                    start_date=scenario.date_range.start_date,
-                    end_date=scenario.date_range.end_date
-                )
-            )
-            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            kpi = scenario_agent.evaluate_scenario(scenario, geo="DE")
             
             # Calculate composite score
             # Normalize sales and margin to 0-1 scale (using max values as reference)

@@ -101,11 +101,16 @@ class SalesDataTool:
         date_range: Tuple[date, date],
         filters: Optional[dict] = None
     ) -> DataFrame:
-        """Filter the cached dataframe by date range and optional filters."""
+        """Filter the cached dataframe by date range and optional filters; fall back to synthetic if empty."""
         df = self._load_dataframe()
         start_date, end_date = date_range
         mask = (df["date"] >= pd.to_datetime(start_date)) & (df["date"] <= pd.to_datetime(end_date))
         filtered = df.loc[mask].copy()
+
+        if filtered.empty:
+            # Synthesize data for the requested window to keep demo responses stable
+            df = self._generate_synthetic_dataframe(date_range=date_range)
+            filtered = df
 
         if filters:
             if channel := filters.get("channel"):
@@ -182,7 +187,7 @@ class SalesDataTool:
         )
         return daily_df
 
-    def _generate_synthetic_dataframe(self) -> DataFrame:
+    def _generate_synthetic_dataframe(self, date_range: Optional[Tuple[date, date]] = None) -> DataFrame:
         """
         Build a deterministic 90-day demo dataset so API responses are stable.
 
@@ -190,8 +195,11 @@ class SalesDataTool:
         across three departments and two channels.
         """
         rng = np.random.default_rng(seed=42)
-        start_date = date(2024, 8, 1)
-        end_date = start_date + timedelta(days=119)  # Covers Aug–Nov 2024 (demo months)
+        if date_range:
+            start_date, end_date = date_range
+        else:
+            start_date = date(2024, 8, 1)
+            end_date = start_date + timedelta(days=119)  # Covers Aug–Nov 2024 (demo months)
         days = pd.date_range(start=start_date, end=end_date, freq="D")
         departments = ["TV", "GAMING", "AUDIO"]
         channels = ["online", "store"]

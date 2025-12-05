@@ -18,6 +18,8 @@ from engines.context_engine import ContextEngine
 from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
 from tools.context_data_tool import ContextDataTool
+from agents.scenario_lab_agent import ScenarioLabAgent
+from agents.validation_agent import ValidationAgent
 
 router = APIRouter()
 
@@ -30,6 +32,14 @@ uplift_engine = UpliftElasticityEngine(sales_data_tool=sales_tool)
 evaluation_engine = ScenarioEvaluationEngine(uplift_engine=uplift_engine)
 validation_engine = ValidationEngine(config_tool=targets_tool)
 context_engine = ContextEngine(context_tool=context_tool)
+scenario_agent = ScenarioLabAgent(
+    evaluation_engine=evaluation_engine,
+    validation_engine=validation_engine,
+    forecast_engine=baseline_engine,
+    uplift_engine=uplift_engine,
+    context_engine=context_engine,
+)
+validation_agent = ValidationAgent(validation_engine=validation_engine, config_tool=targets_tool)
 
 # In-memory scenario store (for demo; replace with DB in production)
 SCENARIO_STORE: Dict[str, PromoScenario] = {}
@@ -140,19 +150,9 @@ async def create_scenario(payload: CreateScenarioRequest) -> Dict[str, Any]:
     SCENARIO_STORE[scenario.id] = scenario
 
     # Evaluate immediately for demo determinism
-    baseline = baseline_engine.calculate_baseline(
-        (scenario.date_range.start_date, scenario.date_range.end_date)
-    )
-    uplift_model = uplift_engine.build_uplift_model({})
-    context = context_engine.build_context(
-        geo=payload.brief.objectives.get("geo", "DE") if payload.brief.objectives else "DE",
-        date_range=DateRange(
-            start_date=scenario.date_range.start_date,
-            end_date=scenario.date_range.end_date
-        )
-    )
-    kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
-    validation = validation_engine.validate_scenario(scenario)
+    geo = payload.brief.objectives.get("geo", "DE") if payload.brief.objectives else "DE"
+    kpi = scenario_agent.evaluate_scenario(scenario, geo=geo)
+    validation = scenario_agent.validate_scenario(scenario, kpi)
 
     return {
         "scenario": _serialize_scenario(scenario, label=payload.scenario_type.title()),
@@ -167,19 +167,8 @@ async def get_scenario(scenario_id: str) -> Dict[str, Any]:
     scenario = SCENARIO_STORE.get(scenario_id)
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    baseline = baseline_engine.calculate_baseline(
-        (scenario.date_range.start_date, scenario.date_range.end_date)
-    )
-    uplift_model = uplift_engine.build_uplift_model({})
-    context = context_engine.build_context(
-        geo="DE",
-        date_range=DateRange(
-            start_date=scenario.date_range.start_date,
-            end_date=scenario.date_range.end_date
-        )
-    )
-    kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
-    validation = validation_engine.validate_scenario(scenario, kpi)
+    kpi = scenario_agent.evaluate_scenario(scenario, geo="DE")
+    validation = scenario_agent.validate_scenario(scenario, kpi, geo="DE")
     return {"scenario": _serialize_scenario(scenario), "kpi": kpi, "validation": validation}
 
 
@@ -197,19 +186,8 @@ async def update_scenario(scenario_id: str, updated: UpdateScenarioRequest) -> D
         existing.segments = updated.segments
     SCENARIO_STORE[scenario_id] = existing
 
-    baseline = baseline_engine.calculate_baseline(
-        (existing.date_range.start_date, existing.date_range.end_date)
-    )
-    uplift_model = uplift_engine.build_uplift_model({})
-    context = context_engine.build_context(
-        geo="DE",
-        date_range=DateRange(
-            start_date=existing.date_range.start_date,
-            end_date=existing.date_range.end_date
-        )
-    )
-    kpi = evaluation_engine.evaluate_scenario(existing, baseline, uplift_model, context)
-    validation = validation_engine.validate_scenario(existing, kpi)
+    kpi = scenario_agent.evaluate_scenario(existing, geo="DE")
+    validation = scenario_agent.validate_scenario(existing, kpi, geo="DE")
     return {"scenario": _serialize_scenario(existing), "kpi": kpi, "validation": validation}
 
 
@@ -236,30 +214,8 @@ async def evaluate_scenario(
         ScenarioKPI object
     """
     try:
-        # Calculate baseline forecast
-        baseline = baseline_engine.calculate_baseline(
-            (scenario.date_range.start_date, scenario.date_range.end_date)
-        )
-        
-        # Build uplift model
-        uplift_model = uplift_engine.build_uplift_model({})
-        
-        # Get context
-        context = context_engine.build_context(
-            geo="DE",  # Default geo, could be parameterized
-            date_range=DateRange(
-                start_date=scenario.date_range.start_date,
-                end_date=scenario.date_range.end_date
-            )
-        )
-        
-        kpi = evaluation_engine.evaluate_scenario(
-            scenario=scenario,
-            baseline=baseline,
-            uplift_model=uplift_model,
-            context=context
-        )
-        validation = validation_engine.validate_scenario(scenario, kpi)
+        kpi = scenario_agent.evaluate_scenario(scenario, geo="DE")
+        validation = scenario_agent.validate_scenario(scenario, kpi, geo="DE")
         return {"kpi": kpi, "validation": validation}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error evaluating scenario: {str(exc)}") from exc
@@ -315,41 +271,19 @@ async def compare_scenarios(
     ]
     
     try:
-        # Evaluate all scenarios
-        kpis: List[ScenarioKPI] = []
-        for scenario in scenarios:
-            baseline = baseline_engine.calculate_baseline(
-                (scenario.date_range.start_date, scenario.date_range.end_date)
-            )
-            uplift_model = uplift_engine.build_uplift_model({})
-            context = context_engine.build_context(
-                geo="DE",
-                date_range=DateRange(
-                    start_date=scenario.date_range.start_date,
-                    end_date=scenario.date_range.end_date
-                )
-            )
-            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
-            kpis.append(kpi)
-        
-        comparison_table: Dict[str, List[float]] = {
-            "sales": [kpi.total_sales for kpi in kpis],
-            "margin": [kpi.total_margin for kpi in kpis],
-            "ebit": [kpi.total_ebit for kpi in kpis],
-            "units": [kpi.total_units for kpi in kpis],
-        }
+        comparison = scenario_agent.compare_scenarios(scenarios, geo="DE")
+        kpis = comparison.kpis
+        comparison_table = comparison.comparison_table
+        recommendations = comparison.recommendations
 
-        recommendations: List[str] = []
         summary: Dict[str, Any] = {}
         if kpis:
             best_sales_idx = max(range(len(kpis)), key=lambda i: kpis[i].total_sales)
             best_margin_idx = max(range(len(kpis)), key=lambda i: kpis[i].total_margin)
-
             summary = {
                 "best_sales": scenarios[best_sales_idx].id or f"scenario_{best_sales_idx+1}",
                 "best_margin": scenarios[best_margin_idx].id or f"scenario_{best_margin_idx+1}",
             }
-
             if best_sales_idx == best_margin_idx:
                 recommendations.append("Best balance of sales and margin")
             else:
@@ -394,20 +328,9 @@ async def validate_scenario(
             kpi_obj = kpi_data if isinstance(kpi_data, ScenarioKPI) else ScenarioKPI.model_validate(kpi_data)
 
         if kpi_obj is None:
-            baseline = baseline_engine.calculate_baseline(
-                (scenario.date_range.start_date, scenario.date_range.end_date)
-            )
-            uplift_model = uplift_engine.build_uplift_model({})
-            context = context_engine.build_context(
-                geo="DE",
-                date_range=DateRange(
-                    start_date=scenario.date_range.start_date,
-                    end_date=scenario.date_range.end_date
-                )
-            )
-            kpi_obj = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            kpi_obj = scenario_agent.evaluate_scenario(scenario, geo="DE")
         
-        report = validation_engine.validate_scenario(scenario, kpi_obj)
+        report = validation_agent.validate_scenario(scenario, kpi_obj)
         return report
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error validating scenario: {str(exc)}") from exc

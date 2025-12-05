@@ -4,13 +4,13 @@ import type { PromoScenario } from '../types'
 
 export const useOptimizeScenarios = () =>
   useMutation({
-    mutationFn: (payload: { brief: string; constraints?: Record<string, unknown> }) =>
+    mutationFn: (payload: { brief: any; constraints?: Record<string, unknown> }) =>
       optimizationApi.optimize(payload.brief, payload.constraints),
   })
 
 export const useFrontier = () =>
   useMutation({
-    mutationFn: (scenarios: PromoScenario[]) => optimizationApi.frontier(scenarios),
+    mutationFn: (params?: Record<string, unknown>) => optimizationApi.frontier(params),
   })
 
 export const useRankScenarios = () =>

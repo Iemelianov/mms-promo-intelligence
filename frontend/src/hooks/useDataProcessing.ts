@@ -6,9 +6,10 @@ export const useProcessXlsb = () =>
     mutationFn: (files: File[]) => dataApi.processXlsb(files),
   })
 
-export const useQualityReport = () =>
+export const useQualityReport = (datasetId: string, enabled = true) =>
   useQuery({
-    queryKey: ['data', 'quality'],
-    queryFn: () => dataApi.quality(),
+    queryKey: ['data', 'quality', datasetId],
+    queryFn: () => dataApi.getQuality(datasetId),
+    enabled,
   })
 

@@ -2,7 +2,7 @@
 
 ## Base Information
 
-- **Base URL**: `https://api.promo-co-pilot.com/v1`
+- **Base URL**: `https://api.promo-co-pilot.com/api/v1` (dev: `http://localhost:8000/api/v1`)
 - **Protocol**: HTTPS
 - **Content-Type**: `application/json`
 - **Authentication**: Bearer token in `Authorization` header
@@ -15,10 +15,12 @@ All endpoints require authentication:
 Authorization: Bearer <api_key>
 ```
 
+**Development mode:** if `ENVIRONMENT=development` and no token is provided, the backend returns a mock admin user (Bearer is still required in production).
+
 ### Get API Key
 
 ```http
-POST /auth/api-keys
+POST /api/v1/auth/api-keys
 Content-Type: application/json
 
 {
@@ -37,167 +39,41 @@ Content-Type: application/json
 
 ## Data Processing Endpoints
 
-### POST /data/process
+### POST /api/v1/data/process-xlsb
+Upload XLSB files (multipart). Cleans, validates, and loads to DuckDB (demo).
 
-Process XLSB files (sales data) and load into database.
+**Request**: form-data `files` (one or more `.xlsb` files)
 
-**Request**:
+**Response (example)**:
 ```json
 {
-  "files": [
-    "/path/to/Web_September_FY25.xlsb",
-    "/path/to/Stores_October-January_FY25.xlsb"
+  "processed_files": [
+    {"filename": "Web_September_FY25.xlsb", "rows": 12000, "quality_score": 0.92, "issues_count": 1}
   ],
-  "options": {
-    "merge_strategy": "union",  // "union" | "intersect" | "overwrite"
-    "validate_quality": true,
-    "generate_report": true
+  "total_rows": 12000,
+  "storage_result": {
+    "success": true,
+    "rows_inserted": 12000,
+    "table_name": "sales_aggregated"
   }
 }
 ```
 
-### POST /data/process/promo
+### GET /api/v1/data/quality
+Returns sampled data quality for recent sales data (demo).
 
-Process promotional catalog XLSB file (e.g., Promo_October-September_FY25.xlsb).
+### GET /api/v1/data/baseline
+Baseline forecast for a date range (optional filters: `department`, `channel`).
 
-**Request**:
-```json
-{
-  "file": "/path/to/Promo_October-September_FY25.xlsb",
-  "options": {
-    "extract_campaigns": true,
-    "load_to_db": true,
-    "validate_quality": true
-  }
-}
-```
+### GET /api/v1/data/segments
+Demo CDP segments.
 
-**Response**:
-```json
-{
-  "job_id": "job_promo_123456",
-  "status": "completed",
-  "result": {
-    "campaigns_extracted": 45,
-    "records_processed": 96653,
-    "quality_report": {
-      "overall_score": 0.97,
-      "issues": []
-    },
-    "campaigns": [
-      {
-        "id": "promo_period_1_2024-10-01",
-        "promo_name": "Promo Period 1",
-        "date_start": "2024-10-01",
-        "date_end": "2024-10-07",
-        "departments": ["TV", "Gaming"],
-        "channels": ["online", "offline"],
-        "avg_discount_pct": 20.5
-      }
-    ]
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "job_id": "job_123456",
-  "status": "processing",
-  "files_queued": 2,
-  "estimated_time_seconds": 120
-}
-```
-
-### GET /data/process/{job_id}
-
-Get processing job status.
-
-**Response**:
-```json
-{
-  "job_id": "job_123456",
-  "status": "completed",  // "queued" | "processing" | "completed" | "failed"
-  "progress": {
-    "files_processed": 2,
-    "total_files": 2,
-    "records_processed": 150000,
-    "errors": 0
-  },
-  "result": {
-    "data_quality_report": {
-      "total_records": 150000,
-      "clean_records": 149500,
-      "issues": [
-        {
-          "type": "missing_values",
-          "count": 500,
-          "columns": ["margin_value"]
-        }
-      ]
-    },
-    "date_range": {
-      "start": "2024-09-01",
-      "end": "2025-01-31"
-    },
-    "channels": ["online", "offline"],
-    "departments": ["TV", "Gaming", "Audio", "Accessories"]
-  },
-  "completed_at": "2024-10-20T10:30:00Z"
-}
-```
-
-### GET /data/quality
-
-Get data quality report for stored data.
-
-**Query Parameters**:
-- `start_date` (optional): Filter start date
-- `end_date` (optional): Filter end date
-- `channel` (optional): Filter by channel
-- `department` (optional): Filter by department
-
-**Response**:
-```json
-{
-  "summary": {
-    "total_records": 500000,
-    "date_range": {
-      "start": "2024-02-01",
-      "end": "2025-01-31"
-    },
-    "channels": {
-      "online": 250000,
-      "offline": 250000
-    },
-    "departments": {
-      "TV": 150000,
-      "Gaming": 120000,
-      "Audio": 100000,
-      "Accessories": 130000
-    }
-  },
-  "quality_metrics": {
-    "completeness": 0.99,
-    "accuracy": 0.98,
-    "consistency": 0.97,
-    "timeliness": 0.95
-  },
-  "issues": [
-    {
-      "type": "missing_values",
-      "severity": "low",
-      "count": 5000,
-      "affected_columns": ["margin_value"],
-      "affected_dates": ["2024-03-15", "2024-03-16"]
-    }
-  ]
-}
-```
+### GET /api/v1/data/uplift-model
+Demo uplift coefficients; optional `department`, `channel` filters.
 
 ## Discovery Endpoints
 
-### GET /discovery/context
+### GET /api/v1/discovery/context
 
 Get contextual information for a date range.
 
@@ -250,7 +126,7 @@ Get contextual information for a date range.
 }
 ```
 
-### POST /discovery/analyze
+### POST /api/v1/discovery/analyze
 
 Analyze situation and identify opportunities.
 
@@ -307,7 +183,7 @@ Analyze situation and identify opportunities.
 
 ## Scenario Endpoints
 
-### POST /scenarios
+### POST /api/v1/scenarios/create
 
 Create a new promotional scenario.
 
@@ -376,13 +252,13 @@ Create a new promotional scenario.
 }
 ```
 
-### GET /scenarios/{scenario_id}
+### GET /api/v1/scenarios/{scenario_id}
 
 Get scenario details.
 
 **Response**: Same as POST /scenarios response
 
-### PUT /scenarios/{scenario_id}
+### PUT /api/v1/scenarios/{scenario_id}
 
 Update scenario.
 
@@ -402,7 +278,7 @@ Update scenario.
 
 **Response**: Updated scenario with recalculated KPIs
 
-### DELETE /scenarios/{scenario_id}
+### DELETE /api/v1/scenarios/{scenario_id}
 
 Delete a scenario.
 
@@ -414,7 +290,7 @@ Delete a scenario.
 }
 ```
 
-### POST /scenarios/compare
+### POST /api/v1/scenarios/compare
 
 Compare multiple scenarios.
 
@@ -448,7 +324,7 @@ Compare multiple scenarios.
 
 ## Optimization Endpoints
 
-### POST /optimization/generate
+### POST /api/v1/optimization/generate
 
 Generate optimized scenarios.
 
@@ -494,7 +370,7 @@ Generate optimized scenarios.
 
 ## Creative Endpoints
 
-### POST /creative/generate
+### POST /api/v1/creative/generate
 
 Generate creative brief and assets.
 
@@ -512,40 +388,30 @@ Generate creative brief and assets.
 {
   "briefs": [
     {
+      "brief_id": "brief_456",
       "scenario_id": "scenario_123",
-      "creative_brief": {
-        "objectives": {
-          "primary": "Close October sales gap",
-          "secondary": ["Maintain margin", "Drive online traffic"]
-        },
-        "target_audience": {
-          "segments": ["LOYAL_HIGH_VALUE"],
-          "demographics": "25-45, tech-savvy"
-        },
-        "key_messages": [
-          "Exclusive member pricing",
-          "Limited time offer",
-          "Top brands included"
-        ],
-        "tone": "energetic",
-        "assets": [
-          {
-            "type": "homepage_hero",
-            "headline": "Member-Exclusive TV & Gaming Sale",
-            "subheadline": "Up to 20% off selected models",
-            "cta": "Shop Now - Members Only",
-            "product_focus": ["TV", "Gaming"]
-          }
-        ]
-      }
+      "creative_brief": {...},
+      "assets": [...]
     }
   ]
 }
 ```
 
+### GET /api/v1/creative/{brief_id}
+Fetch creative brief and assets by `brief_id` (stored when generated; demo fallback if missing).
+
+### POST /api/v1/creative/brief
+Generate a creative brief from a scenario.
+
+### POST /api/v1/creative/assets
+Generate asset specs from a brief.
+
+### POST /api/v1/creative/finalize
+Finalize selected scenarios into a campaign plan.
+
 ## Post-Mortem Endpoints
 
-### POST /postmortem/analyze
+### POST /api/v1/postmortem/analyze
 
 Analyze completed campaign.
 
@@ -589,7 +455,7 @@ Analyze completed campaign.
 
 ## Chat Endpoints
 
-### POST /chat/message
+### POST /api/v1/chat/message
 
 Send message to co-pilot.
 
@@ -619,7 +485,7 @@ Send message to co-pilot.
 }
 ```
 
-### POST /chat/stream
+### POST /api/v1/chat/stream
 
 Stream chat response (Server-Sent Events).
 

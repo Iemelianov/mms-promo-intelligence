@@ -2,7 +2,7 @@
 
 ## Overview
 
-The system processes promotional catalog data from XLSB files (e.g., `Promo_October-September_FY25.xlsb`) to extract promotional campaign information for use in uplift modeling and scenario planning.
+The system processes promotional catalog data from XLSB files (e.g., `Promo_October-September_FY25.xlsb`) to extract promotional campaign information for use in uplift modeling and scenario planning. For demo/testing you can also upload the CSV sample at `docs/demo-promo-upload.csv`; the reader now accepts `.xlsb`, `.xlsx`, and `.csv`.
 
 ## File Structure
 

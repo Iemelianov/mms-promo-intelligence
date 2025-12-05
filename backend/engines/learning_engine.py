@@ -12,7 +12,7 @@ Methodology:
 - Weight recent data more heavily
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from models.schemas import PostMortemReport, UpliftModel
 

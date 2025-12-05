@@ -12,7 +12,7 @@ export const useScenario = (scenarioId?: string, enabled = false) =>
 export const useCreateScenario = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { brief: string; parameters?: Record<string, unknown> }) =>
+    mutationFn: (payload: { brief: any; parameters?: Record<string, unknown> }) =>
       scenariosApi.create(payload.brief, payload.parameters),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['scenarios'] })
@@ -23,8 +23,7 @@ export const useCreateScenario = () => {
 export const useUpdateScenario = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, scenario }: { id: string; scenario: PromoScenario }) =>
-      scenariosApi.update(id, scenario),
+    mutationFn: ({ id, scenario }: { id: string; scenario: PromoScenario }) => scenariosApi.update(id, scenario),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: ['scenarios', id] })
     },

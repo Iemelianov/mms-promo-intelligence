@@ -12,9 +12,12 @@ from pydantic import BaseModel
 
 from models.schemas import PromoOpportunity, PromoContext, GapAnalysis, DateRange
 from engines.forecast_baseline_engine import ForecastBaselineEngine
+from engines.context_engine import ContextEngine
 from tools.sales_data_tool import SalesDataTool
 from tools.context_data_tool import ContextDataTool
 from tools.targets_config_tool import TargetsConfigTool
+from tools.weather_tool import WeatherTool
+from agents.discovery_agent import DiscoveryAgent
 
 router = APIRouter()
 
@@ -22,6 +25,15 @@ sales_tool = SalesDataTool()
 context_tool = ContextDataTool()
 targets_tool = TargetsConfigTool()
 baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
+context_engine = ContextEngine(context_tool=context_tool)
+discovery_agent = DiscoveryAgent(
+    context_engine=context_engine,
+    forecast_engine=baseline_engine,
+    context_tool=context_tool,
+    weather_tool=WeatherTool(),
+    targets_tool=targets_tool,
+    sales_tool=sales_tool,
+)
 
 
 class DiscoveryAnalyzeRequest(BaseModel):
@@ -42,16 +54,9 @@ def _month_to_range(month: str) -> tuple:
 
 def _build_context(geo: str, start_date: date, end_date: date) -> PromoContext:
     """Assemble a lightweight context object from static fixtures."""
-    events = context_tool.get_events(geo, (start_date, end_date))
-    seasonality = context_tool.get_seasonality_profile(geo)
-    weekend_patterns = context_tool.get_weekend_patterns(geo)
-    return PromoContext(
+    return discovery_agent.get_context(
+        date_range=(start_date, end_date),
         geo=geo,
-        date_range=DateRange(start_date=start_date, end_date=end_date),
-        events=events,
-        weather=None,
-        seasonality=seasonality,
-        weekend_patterns=weekend_patterns,
     )
 
 
@@ -72,32 +77,12 @@ async def get_opportunities(
     Returns:
         List of promotional opportunities
     """
-    start_date, end_date = _month_to_range(month)
     try:
-        baseline = baseline_engine.calculate_baseline((start_date, end_date))
+        result = discovery_agent.analyze_situation(month=month, geo=geo, targets=targets)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    agg = sales_tool.get_aggregated_sales(
-        date_range=(start_date, end_date),
-        grain=["department"],
-        filters={"channel": None},
-    )
-    opportunities: List[PromoOpportunity] = []
-    for idx, row in agg.iterrows():
-        estimated_potential = float(row["sales_value"] * 0.12)
-        opportunities.append(
-            PromoOpportunity(
-                id=f"opp_{idx+1:02d}",
-                department=row["department"],
-                channel="mixed",
-                date_range=DateRange(start_date=start_date, end_date=end_date),
-                estimated_potential=estimated_potential,
-                priority=len(agg) - idx,
-                rationale=f"12% upside based on {row['department']} run-rate and recent demand",
-            )
-        )
-
+    opportunities: List[PromoOpportunity] = result.get("opportunities", [])
     opportunities.sort(key=lambda o: o.estimated_potential, reverse=True)
     return opportunities
 
@@ -148,23 +133,11 @@ async def get_gaps(
     Returns:
         GapAnalysis object
     """
-    start_date, end_date = _month_to_range(month)
     try:
-        baseline = baseline_engine.calculate_baseline((start_date, end_date))
+        result = discovery_agent.analyze_situation(month=month, geo=geo, targets=targets)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    targets = targets or targets_tool.get_targets(month).model_dump()
-    gaps = baseline_engine.calculate_gap_vs_targets(baseline, targets)
-    target_sales = targets.get("sales_target", 1) or 1
-    gap_percentage = {"sales": gaps["sales_gap"] / target_sales}
-
-    return GapAnalysis(
-        sales_gap=gaps["sales_gap"],
-        margin_gap=gaps["margin_gap"],
-        units_gap=gaps["units_gap"],
-        gap_percentage=gap_percentage,
-    )
+    return result["gap_analysis"]
 
 
 @router.post("/analyze")
@@ -174,21 +147,24 @@ async def analyze(payload: DiscoveryAnalyzeRequest = Body(...)) -> dict:
     geo = payload.geo
     targets = payload.targets
 
-    start_date, end_date = _month_to_range(month)
-    baseline = baseline_engine.calculate_baseline((start_date, end_date))
-    targets_data = targets or targets_tool.get_targets(month).model_dump()
-    gaps = baseline_engine.calculate_gap_vs_targets(baseline, targets_data)
-    opportunities = await get_opportunities(month=month, geo=geo, targets=targets)
+    result = discovery_agent.analyze_situation(month=month, geo=geo, targets=targets)
     return {
         "baseline_forecast": {
-            "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
+            "period": {
+                "start": result["baseline"].date_range.start_date.isoformat(),
+                "end": result["baseline"].date_range.end_date.isoformat(),
+            },
             "totals": {
-                "sales_value": baseline.total_sales,
-                "margin_value": baseline.total_margin,
-                "margin_pct": (baseline.total_margin / baseline.total_sales) if baseline.total_sales else 0.0,
-                "units": baseline.total_units,
+                "sales_value": result["baseline"].total_sales,
+                "margin_value": result["baseline"].total_margin,
+                "margin_pct": (
+                    (result["baseline"].total_margin / result["baseline"].total_sales)
+                    if result["baseline"].total_sales
+                    else 0.0
+                ),
+                "units": result["baseline"].total_units,
             },
         },
-        "gap_analysis": gaps,
-        "opportunities": opportunities,
+        "gap_analysis": result["gap_analysis"],
+        "opportunities": result["opportunities"],
     }

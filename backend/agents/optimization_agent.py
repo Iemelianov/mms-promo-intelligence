@@ -1,22 +1,18 @@
 """
 Optimization & Business Impact Agent
 
-Purpose: Finding optimal scenarios for maximum business value
-
-Responsibilities:
-- Generate candidate scenarios
-- Optimize scenarios for objectives
-- Build efficient frontier (sales vs margin trade-offs)
-- Rank scenarios by business impact
+Wraps ScenarioOptimizationEngine with simple scoring and validation.
 """
 
+from __future__ import annotations
+
 from typing import List, Optional, Dict, Any
-from langchain.agents import AgentExecutor
 
 from models.schemas import PromoScenario, FrontierData, RankedScenarios
 from engines.scenario_optimization_engine import ScenarioOptimizationEngine
 from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
 from engines.validation_engine import ValidationEngine
+from middleware.observability import trace_context
 
 
 class OptimizationAgent:
@@ -28,70 +24,45 @@ class OptimizationAgent:
         evaluation_engine: Optional[ScenarioEvaluationEngine] = None,
         validation_engine: Optional[ValidationEngine] = None,
     ):
-        """
-        Initialize Optimization Agent.
-        
-        Args:
-            optimization_engine: Scenario Optimization Engine instance
-            evaluation_engine: Scenario Evaluation Engine instance
-            validation_engine: Validation Engine instance
-        """
-        self.optimization_engine = optimization_engine
+        self.optimization_engine = optimization_engine or ScenarioOptimizationEngine(
+            evaluation_engine=evaluation_engine,
+            validation_engine=validation_engine,
+        )
         self.evaluation_engine = evaluation_engine
         self.validation_engine = validation_engine
-        
-        # TODO: Initialize LangChain agent executor
-        # self.agent_executor: Optional[AgentExecutor] = None
     
     def optimize_scenarios(
         self,
         brief: str,
         constraints: Optional[Dict[str, Any]] = None
     ) -> List[PromoScenario]:
-        """
-        Generate optimized scenarios based on brief and constraints.
-        
-        Args:
-            brief: Natural language brief describing objectives
-            constraints: Optional dictionary of constraints
-        
-        Returns:
-            List of optimized PromoScenario objects
-        """
-        # TODO: Implement scenario optimization logic
-        raise NotImplementedError("optimize_scenarios not yet implemented")
+        """Generate and score optimized scenarios based on brief and constraints."""
+        with trace_context("optimization.optimize", {"brief": brief[:32]}):
+            candidates = self.optimization_engine.generate_candidate_scenarios(brief, constraints)
+            weights = (constraints or {}).get("weights", {"sales": 0.6, "margin": 0.4})
+            ranked = self.optimization_engine.optimize_scenarios(candidates, weights, constraints)
+            return ranked
     
     def calculate_efficient_frontier(
         self,
         scenarios: List[PromoScenario]
     ) -> FrontierData:
-        """
-        Calculate efficient frontier showing trade-offs between objectives.
-        
-        Args:
-            scenarios: List of PromoScenario objects
-        
-        Returns:
-            FrontierData with Pareto-optimal solutions
-        """
-        # TODO: Implement efficient frontier calculation
-        raise NotImplementedError("calculate_efficient_frontier not yet implemented")
+        """Return a simple frontier using discount_percentage as proxy coordinates."""
+        coords = [(s.discount_percentage, s.discount_percentage * 0.6) for s in scenarios]
+        pareto = [True for _ in scenarios]
+        return FrontierData(scenarios=scenarios, coordinates=coords, pareto_optimal=pareto)
     
     def rank_by_objectives(
         self,
         scenarios: List[PromoScenario],
         weights: Optional[Dict[str, float]] = None
     ) -> RankedScenarios:
-        """
-        Rank scenarios by weighted objective function.
-        
-        Args:
-            scenarios: List of PromoScenario objects
-            weights: Optional dictionary of objective weights
-        
-        Returns:
-            RankedScenarios with rankings and rationale
-        """
-        # TODO: Implement scenario ranking logic
-        raise NotImplementedError("rank_by_objectives not yet implemented")
-
+        """Rank scenarios by weighted discount heuristic."""
+        weights = weights or {"sales": 0.6, "margin": 0.4}
+        ranked = sorted(
+            scenarios,
+            key=lambda s: s.discount_percentage * weights.get("sales", 0.6),
+            reverse=True,
+        )
+        rationale = {s.id or s.name: "Ranked by discount proxy" for s in ranked}
+        return RankedScenarios(ranked_scenarios=[(s, idx) for idx, s in enumerate(ranked, start=1)], rationale=rationale)

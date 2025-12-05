@@ -56,13 +56,13 @@ export default function DiscoveryScreen() {
   }, [baseline, gaps])
 
   const deptHeatmapData = useMemo(() => {
-    if (!opportunities) return []
+    if (!opportunities || !baseline?.total_sales) return []
     return opportunities.map((opp: any) => ({
       name: opp.department,
-      gap_pct: (opp.estimated_potential / 1000000) * -1,
+      gap_pct: (opp.estimated_potential / baseline.total_sales) * 100,
       sales_value: opp.estimated_potential,
     }))
-  }, [opportunities])
+  }, [opportunities, baseline])
 
   return (
     <div className="px-4 py-6 space-y-6">

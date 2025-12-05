@@ -5,13 +5,15 @@ Endpoints for creative brief and asset generation.
 """
 
 from fastapi import APIRouter, HTTPException
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, timedelta
 
 from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
 from engines.creative_engine import CreativeEngine
 from tools.targets_config_tool import TargetsConfigTool
 from tools.cdp_tool import CDPTool
+from agents.creative_agent import CreativeAgent
+from engines.validation_engine import ValidationEngine
 from .scenarios import SCENARIO_STORE
 
 router = APIRouter()
@@ -20,6 +22,8 @@ router = APIRouter()
 config_tool = TargetsConfigTool()
 cdp_tool = CDPTool()
 creative_engine = CreativeEngine(cdp_tool=cdp_tool, config_tool=config_tool)
+creative_agent = CreativeAgent(creative_engine=creative_engine, validation_engine=ValidationEngine(), cdp_tool=cdp_tool)
+BRIEF_STORE: Dict[str, Dict[str, Any]] = {}
 
 
 @router.post("/finalize")
@@ -39,43 +43,7 @@ async def finalize_campaign(
         raise HTTPException(status_code=400, detail="At least one scenario is required")
     
     try:
-        # Build timeline from scenario date ranges
-        timeline: dict = {}
-        
-        # Collect all unique dates from scenarios
-        all_dates = set()
-        for scenario in scenarios:
-            current_date = scenario.date_range.start_date
-            while current_date <= scenario.date_range.end_date:
-                all_dates.add(current_date)
-                current_date = current_date + timedelta(days=1)
-        
-        # Build timeline (simplified: group by week)
-        for scenario in scenarios:
-            current_date = scenario.date_range.start_date
-            while current_date <= scenario.date_range.end_date:
-                week_start = current_date - timedelta(days=current_date.weekday())
-                if week_start not in timeline:
-                    timeline[week_start] = []
-                timeline[week_start].append(f"{scenario.name}: {scenario.description}")
-                current_date = current_date + timedelta(days=7)  # Weekly entries
-        
-        # Execution details
-        execution_details = {
-            "scenarios_count": len(scenarios),
-            "total_departments": list(set(dept for s in scenarios for dept in s.departments)),
-            "total_channels": list(set(ch for s in scenarios for ch in s.channels)),
-            "date_range": {
-                "start": min(s.date_range.start_date for s in scenarios),
-                "end": max(s.date_range.end_date for s in scenarios)
-            }
-        }
-        
-        return CampaignPlan(
-            scenarios=scenarios,
-            timeline=timeline,
-            execution_details=execution_details
-        )
+        return creative_agent.finalize_campaign(scenarios)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error finalizing campaign: {str(exc)}") from exc
 
@@ -96,11 +64,9 @@ async def generate_brief(
         CreativeBrief object
     """
     try:
-        brief = creative_engine.generate_creative_brief(
+        return creative_agent.generate_creative_brief(
             scenario=scenario,
-            segments=segments
         )
-        return brief
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating brief: {str(exc)}") from exc
 
@@ -119,8 +85,7 @@ async def generate_assets(
         List of AssetSpec objects
     """
     try:
-        assets = creative_engine.generate_asset_specs(brief)
-        return assets
+        return creative_agent.generate_assets(brief)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating assets: {str(exc)}") from exc
 
@@ -151,9 +116,35 @@ async def generate_creative_package(payload: dict) -> dict:
                 channels=["online", "store"],
                 discount_percentage=15.0,
             )
-        brief = creative_engine.generate_creative_brief(scenario=scenario, segments=target_segments)
-        assets = creative_engine.generate_asset_specs(brief)
+        brief = creative_agent.generate_creative_brief(scenario=scenario)
+        assets = creative_agent.generate_assets(brief)
         filtered_assets = [a for a in assets if a.asset_type in asset_types] or assets
-        briefs.append({"scenario_id": scenario_id, "creative_brief": brief, "assets": filtered_assets})
+        brief_id = scenario_id or f"brief_{len(BRIEF_STORE)+1}"
+        payload = {"brief_id": brief_id, "scenario_id": scenario_id, "creative_brief": brief, "assets": filtered_assets}
+        BRIEF_STORE[brief_id] = payload
+        briefs.append(payload)
 
     return {"briefs": briefs}
+
+
+@router.get("/{brief_id}")
+async def get_creative_brief(brief_id: str) -> dict:
+    """
+    Return stored or demo creative brief by id (docs-aligned).
+    """
+    stored = BRIEF_STORE.get(brief_id)
+    if stored:
+        return {"brief": stored.get("creative_brief"), "assets": stored.get("assets"), "brief_id": brief_id}
+
+    # Fallback demo payload
+    demo_brief = CreativeBrief(
+        scenario_id="demo_scenario",
+        objectives=["Close October sales gap", "Maintain margin"],
+        messaging="Member-exclusive savings on TVs and Gaming",
+        target_audience="LOYAL_HIGH_VALUE",
+        tone="energetic",
+        style="bold",
+        mandatory_elements=["Brand logo", "Legal copy"],
+    )
+    demo_assets = creative_agent.generate_assets(demo_brief)
+    return {"brief": demo_brief, "assets": demo_assets, "brief_id": brief_id}
