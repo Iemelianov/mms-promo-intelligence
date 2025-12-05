@@ -4,11 +4,18 @@ Scenario Lab API Routes
 Endpoints for scenario creation, evaluation, and comparison.
 """
 
-from fastapi import APIRouter, HTTPException
-from typing import List, Optional, Dict, Any
+import json
 import uuid
+from datetime import date
+from typing import List, Optional, Dict, Any
 
-from models.schemas import PromoScenario, ScenarioKPI, ComparisonReport, ValidationReport, BaselineForecast, DateRange
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from models.schemas import PromoScenario, ScenarioKPI, ValidationReport, DateRange
+from middleware.auth import get_current_user, require_analyst
+from middleware.rate_limit import get_rate_limit
 from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
 from engines.validation_engine import ValidationEngine
 from engines.forecast_baseline_engine import ForecastBaselineEngine
@@ -17,8 +24,10 @@ from engines.context_engine import ContextEngine
 from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
 from tools.context_data_tool import ContextDataTool
+from db.base import Scenario as ScenarioModel, ScenarioKPI as ScenarioKPIModel
+from db.session import get_session
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Initialize engines and tools
 sales_tool = SalesDataTool()
@@ -30,75 +39,204 @@ evaluation_engine = ScenarioEvaluationEngine(uplift_engine=uplift_engine)
 validation_engine = ValidationEngine(config_tool=targets_tool)
 context_engine = ContextEngine(context_tool=context_tool)
 
-# In-memory scenario store (for demo; replace with DB in production)
-SCENARIO_STORE: Dict[str, PromoScenario] = {}
+class ScenarioBrief(BaseModel):
+    month: Optional[str] = None
+    promo_date_range: Optional[Dict[str, str]] = None
+    focus_departments: Optional[List[str]] = None
+    objectives: Optional[Dict[str, Any]] = None
+    constraints: Optional[Dict[str, Any]] = None
 
 
-@router.post("/create")
+class ScenarioCreatePayload(BaseModel):
+    brief: ScenarioBrief
+    scenario_type: Optional[str] = "balanced"
+
+
+def _model_to_promo_scenario(model: ScenarioModel) -> PromoScenario:
+    return PromoScenario(
+        id=model.id,
+        name=model.name,
+        description=model.description,
+        date_range=DateRange(start_date=model.date_start, end_date=model.date_end),
+        departments=json.loads(model.departments or "[]"),
+        channels=json.loads(model.channels or "[]"),
+        discount_percentage=model.discount_percentage,
+        segments=json.loads(model.segments or "[]") if model.segments else None,
+        metadata=json.loads(model.metadata or "{}") if model.metadata else None,
+    )
+
+
+def _store_promo_scenario(db: Session, scenario: PromoScenario, created_by: str) -> ScenarioModel:
+    record = ScenarioModel(
+        id=scenario.id or str(uuid.uuid4()),
+        name=scenario.name,
+        description=scenario.description,
+        date_start=scenario.date_range.start_date,
+        date_end=scenario.date_range.end_date,
+        departments=json.dumps(scenario.departments),
+        channels=json.dumps(scenario.channels),
+        discount_percentage=scenario.discount_percentage,
+        segments=json.dumps(scenario.segments or []),
+        metadata=json.dumps(scenario.metadata or {}),
+        created_by=created_by,
+    )
+    db.merge(record)
+    db.commit()
+    return db.get(ScenarioModel, record.id)
+
+
+def _persist_kpi(db: Session, scenario_id: str, kpi: ScenarioKPI) -> ScenarioKPIModel:
+    record = ScenarioKPIModel(
+        scenario_id=scenario_id,
+        total_sales=kpi.total_sales,
+        total_margin=kpi.total_margin,
+        total_ebit=kpi.total_ebit,
+        total_units=kpi.total_units,
+        breakdown_by_channel=json.dumps(kpi.breakdown_by_channel),
+        breakdown_by_department=json.dumps(kpi.breakdown_by_department),
+        comparison_vs_baseline=json.dumps(kpi.comparison_vs_baseline),
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@router.post("")
+@router.post("/", include_in_schema=False)
+@router.post("/create", include_in_schema=False)
+@get_rate_limit("standard")
 async def create_scenario(
-    brief: str,
-    parameters: Optional[Dict[str, Any]] = None
-) -> PromoScenario:
+    payload: Optional[ScenarioCreatePayload] = None,
+    brief: Optional[str] = None,
+    parameters: Optional[Dict[str, Any]] = None,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
+) -> dict:
     """
-    Create a promotional scenario from brief.
-    
-    Args:
-        brief: Natural language brief
-        parameters: Optional scenario parameters
-    
-    Returns:
-        PromoScenario object
+    Create a promotional scenario from a structured brief (spec) or legacy params.
     """
-    # Parse parameters or use defaults
     params = parameters or {}
-    
-    # Extract scenario details from brief/parameters
-    # For MVP: use parameters directly, in production this would use LLM to parse brief
+    scenario_brief = payload.brief if payload else None
+
+    date_range = None
+    if scenario_brief and scenario_brief.promo_date_range:
+        try:
+            date_range = DateRange(
+                start_date=date.fromisoformat(scenario_brief.promo_date_range.get("start")),
+                end_date=date.fromisoformat(scenario_brief.promo_date_range.get("end")),
+            )
+        except Exception:
+            pass
+    elif params.get("date_range"):
+        dr = params["date_range"]
+        if dr:
+            date_range = DateRange(
+                start_date=dr.get("start_date"),
+                end_date=dr.get("end_date"),
+            )
+
     scenario = PromoScenario(
         id=str(uuid.uuid4()),
-        name=params.get("name", f"Scenario from brief"),
-        description=brief,
-        date_range=params.get("date_range"),
-        departments=params.get("departments", ["TV", "Gaming"]),
+        name=params.get("name", "Scenario"),
+        description=brief or (scenario_brief.month if scenario_brief else "Scenario"),
+        date_range=date_range or DateRange(
+            start_date=date.today(),
+            end_date=date.today(),
+        ),
+        departments=(scenario_brief.focus_departments if scenario_brief else params.get("departments", ["TV", "Gaming"])),
         channels=params.get("channels", ["online", "store"]),
         discount_percentage=params.get("discount_percentage", 15.0),
         segments=params.get("segments"),
-        metadata=params.get("metadata"),
+        metadata={"objectives": scenario_brief.objectives if scenario_brief else {}},
     )
-    SCENARIO_STORE[scenario.id] = scenario
-    return scenario
+
+    stored = _store_promo_scenario(db, scenario, created_by=current_user.user_id)
+    response = {
+        "scenario": {
+            "id": stored.id,
+            "label": payload.scenario_type if payload else "balanced",
+            "date_range": {
+                "start": stored.date_start.isoformat(),
+                "end": stored.date_end.isoformat(),
+            },
+            "mechanics": [
+                {
+                    "department": scenario.departments[0],
+                    "channel": scenario.channels[0],
+                    "discount_pct": scenario.discount_percentage,
+                    "segments": scenario.segments or ["ALL"],
+                }
+            ],
+        }
+    }
+    return response
 
 
 @router.get("/{scenario_id}")
-async def get_scenario(scenario_id: str) -> PromoScenario:
+@get_rate_limit("standard")
+async def get_scenario(
+    scenario_id: str,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
+):
     """Get scenario details."""
-    scenario = SCENARIO_STORE.get(scenario_id)
-    if not scenario:
+    stored = db.get(ScenarioModel, scenario_id)
+    if not stored:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    return scenario
+    scenario = _model_to_promo_scenario(stored)
+    return {
+        "scenario": {
+            "id": scenario.id,
+            "label": scenario.name,
+            "date_range": {
+                "start": scenario.date_range.start_date.isoformat(),
+                "end": scenario.date_range.end_date.isoformat(),
+            },
+            "mechanics": scenario.metadata.get("mechanics", []),
+        }
+    }
 
 
 @router.put("/{scenario_id}")
-async def update_scenario(scenario_id: str, updated: PromoScenario) -> PromoScenario:
+@get_rate_limit("standard")
+async def update_scenario(
+    scenario_id: str,
+    updated: PromoScenario,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
+) -> dict:
     """Update scenario."""
-    if scenario_id not in SCENARIO_STORE:
+    existing = db.get(ScenarioModel, scenario_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    SCENARIO_STORE[scenario_id] = updated
-    return updated
+    updated.id = scenario_id
+    stored = _store_promo_scenario(db, updated, created_by=current_user.user_id)
+    return {"scenario": _model_to_promo_scenario(stored)}
 
 
 @router.delete("/{scenario_id}")
-async def delete_scenario(scenario_id: str) -> dict:
+@get_rate_limit("standard")
+async def delete_scenario(
+    scenario_id: str,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
+) -> dict:
     """Delete scenario."""
-    if scenario_id not in SCENARIO_STORE:
+    existing = db.get(ScenarioModel, scenario_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    del SCENARIO_STORE[scenario_id]
+    db.delete(existing)
+    db.commit()
     return {"deleted": True, "scenario_id": scenario_id}
 
 
 @router.post("/evaluate")
+@get_rate_limit("standard")
 async def evaluate_scenario(
-    scenario: PromoScenario
+    scenario: PromoScenario,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
 ) -> ScenarioKPI:
     """
     Evaluate scenario and calculate KPIs.
@@ -134,16 +272,19 @@ async def evaluate_scenario(
             uplift_model=uplift_model,
             context=context
         )
-        
+        _persist_kpi(db, scenario.id, kpi)
         return kpi
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error evaluating scenario: {str(exc)}") from exc
 
 
 @router.post("/compare")
+@get_rate_limit("standard")
 async def compare_scenarios(
     scenarios: List[PromoScenario] = None,
-    scenario_ids: Optional[List[str]] = None
+    scenario_ids: Optional[List[str]] = None,
+    current_user=Depends(require_analyst),
+    db: Session = Depends(get_session),
 ) -> ComparisonReport:
     """
     Compare multiple scenarios side-by-side.
@@ -157,9 +298,9 @@ async def compare_scenarios(
     if not scenarios and scenario_ids:
         scenarios = []
         for sid in scenario_ids:
-            stored = SCENARIO_STORE.get(sid)
+            stored = db.get(ScenarioModel, sid)
             if stored:
-                scenarios.append(stored)
+                scenarios.append(_model_to_promo_scenario(stored))
     if not scenarios:
         raise HTTPException(status_code=400, detail="At least one scenario is required")
     
@@ -201,20 +342,28 @@ async def compare_scenarios(
                 recommendations.append(f"Scenario {best_sales_idx + 1} maximizes sales")
                 recommendations.append(f"Scenario {best_margin_idx + 1} maximizes margin")
         
-        return ComparisonReport(
-            scenarios=scenarios,
-            kpis=kpis,
-            comparison_table=comparison_table,
-            recommendations=recommendations
-        )
+        summary = {
+            "best_sales": scenario_ids[0] if scenario_ids else scenarios[0].id,
+            "best_margin": scenario_ids[0] if scenario_ids else scenarios[0].id,
+            "best_ebit": scenario_ids[0] if scenario_ids else scenarios[0].id,
+        }
+        return {
+            "comparison": {
+                "scenarios": [s.model_dump() for s in scenarios],
+                "kpis": [k.model_dump() for k in kpis],
+                "summary": summary,
+            }
+        }
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error comparing scenarios: {str(exc)}") from exc
 
 
 @router.post("/validate")
+@get_rate_limit("standard")
 async def validate_scenario(
     scenario: PromoScenario,
-    kpi: Optional[ScenarioKPI] = None
+    kpi: Optional[ScenarioKPI] = None,
+    current_user=Depends(require_analyst),
 ) -> ValidationReport:
     """
     Validate scenario against business rules.
