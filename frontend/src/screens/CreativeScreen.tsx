@@ -4,6 +4,7 @@ import AssetCard from '../components/AssetCard'
 import { useGenerateAssets, useGenerateBrief } from '../hooks/useCreative'
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { useScenarioStore } from '../store/useScenarioStore'
+import { notifyError, notifySuccess } from '../lib/toast'
 
 export default function CreativeScreen() {
   const { selectedScenarioIds } = useScenarioSelectionStore()
@@ -25,8 +26,10 @@ export default function CreativeScreen() {
       setBriefResult(brief)
       const assets = await generateAssets.mutateAsync(brief)
       setAssetsResult(assets)
+      notifySuccess('Creative brief and assets generated')
     } catch (e) {
       console.error('Failed to generate creative', e)
+      notifyError('Failed to generate creative')
     }
   }
 

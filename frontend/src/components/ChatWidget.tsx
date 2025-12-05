@@ -1,14 +1,30 @@
 import { useState } from 'react'
+import { useChat } from '../hooks/useChat'
+import { notifyError } from '../lib/toast'
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [history, setHistory] = useState<string[]>([])
+  const chat = useChat()
 
   const send = () => {
     if (!message) return
-    setHistory((h) => [...h, `You: ${message}`, 'Co-Pilot: (response placeholder)'])
+    const current = message
+    setHistory((h) => [...h, `You: ${current}`])
     setMessage('')
+    chat.mutate(
+      { message: current, context: { screen: 'global' } },
+      {
+        onSuccess: (res) => {
+          setHistory((h) => [...h, `Co-Pilot: ${res.response}`])
+        },
+        onError: () => {
+          notifyError('Chat request failed')
+          setHistory((h) => [...h, 'Co-Pilot: (failed to respond)'])
+        },
+      }
+    )
   }
 
   return (
@@ -34,7 +50,7 @@ export default function ChatWidget() {
               onChange={(e) => setMessage(e.target.value)}
             />
             <button className="bg-blue-600 text-white text-sm px-3 py-1 rounded" onClick={send}>
-              Send
+              {chat.isPending ? '...' : 'Send'}
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useOptimizeScenarios, useFrontier, useRankScenarios } from '../hooks/us
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { PromoScenario } from '../types'
+import { notifyError, notifySuccess } from '../lib/toast'
 
 export default function OptimizationScreen() {
   const [brief, setBrief] = useState('Optimize October promo')
@@ -47,8 +48,10 @@ export default function OptimizationScreen() {
           score,
         }))
       )
+      notifySuccess('Optimization completed')
     } catch (e) {
       console.error('Failed to optimize', e)
+      notifyError('Failed to optimize scenarios')
     }
   }
 
@@ -64,8 +67,10 @@ export default function OptimizationScreen() {
           score,
         }))
       )
+      notifySuccess('Ranked selected scenarios')
     } catch (e) {
       console.error('Failed to rank scenarios', e)
+      notifyError('Failed to rank scenarios')
     }
   }
 

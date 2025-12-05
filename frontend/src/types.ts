@@ -161,6 +161,18 @@ export interface PostMortemReport {
   learning_points: string[]
 }
 
+// Chat
+export interface ChatMessageRequest {
+  message: string
+  context?: Record<string, unknown>
+}
+
+export interface ChatMessageResponse {
+  response: string
+  suggestions?: string[]
+  related_data?: Record<string, unknown>
+}
+
 // Data / quality
 export interface QualityReport {
   completeness: number

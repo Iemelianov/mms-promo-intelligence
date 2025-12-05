@@ -14,6 +14,8 @@ import type {
   AssetSpec,
   DataProcessResult,
   QualityReport,
+  ChatMessageRequest,
+  ChatMessageResponse,
 } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -132,4 +134,10 @@ export const dataApi = {
   },
 
   quality: () => unwrap(apiClient.get<QualityReport>('/api/v1/data/quality')),
+}
+
+// Chat API
+export const chatApi = {
+  message: (payload: ChatMessageRequest) =>
+    unwrap(apiClient.post<ChatMessageResponse>('/api/v1/chat/message', payload)),
 }
