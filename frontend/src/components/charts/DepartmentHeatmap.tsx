@@ -1,4 +1,5 @@
 import { ResponsiveContainer, Treemap } from 'recharts'
+import { EmptyState } from '../Status'
 
 interface DeptPoint {
   name: string
@@ -7,7 +8,17 @@ interface DeptPoint {
 }
 
 export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
-  const treeData = [{ name: 'departments', children: data.map(d => ({ name: d.name, size: Math.abs(d.gap_pct), gap_pct: d.gap_pct })) }]
+  if (!data || data.length === 0) return <EmptyState message="No department data" />
+  const treeData = [
+    {
+      name: 'departments',
+      children: data.map((d) => ({
+        name: d.name,
+        size: Math.abs(d.gap_pct || 0),
+        gap_pct: d.gap_pct ?? 0,
+      })),
+    },
+  ]
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
