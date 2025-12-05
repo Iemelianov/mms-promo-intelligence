@@ -1,14 +1,68 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { chatApi } from '../services/api'
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [history, setHistory] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [streaming, setStreaming] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  const append = (lines: string[]) => setHistory((h) => [...h, ...lines])
+
+  const sendMessage = async () => {
+    if (!message) return
+    setLoading(true)
+    try {
+      const res = await chatApi.message(message)
+      append([`You: ${message}`, `Co-Pilot: ${res.data.response}`])
+    } catch (e: any) {
+      append([`You: ${message}`, `Error: ${e?.message || 'Failed to send'}`])
+    } finally {
+      setMessage('')
+      setLoading(false)
+    }
+  }
+
+  const sendStream = async () => {
+    if (!message) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    setStreaming(true)
+    append([`You: ${message}`, 'Co-Pilot (streaming)...'])
+    try {
+      const res = await chatApi.stream(message, undefined)
+      if (!res.body) throw new Error('No stream body')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() || ''
+        for (const part of parts) {
+          const line = part.trim()
+          if (!line.startsWith('data:')) continue
+          const payload = JSON.parse(line.replace('data:', '').trim())
+          if (payload.chunk) {
+            append([`Co-Pilot: ${payload.chunk}`])
+          }
+        }
+      }
+    } catch (e: any) {
+      append([`Error: ${e?.message || 'Stream failed'}`])
+    } finally {
+      setMessage('')
+      setStreaming(false)
+    }
+  }
 
   const send = () => {
-    if (!message) return
-    setHistory((h) => [...h, `You: ${message}`, 'Co-Pilot: (response placeholder)'])
-    setMessage('')
+    if (streaming || loading) return
+    sendMessage()
   }
 
   return (
@@ -32,9 +86,24 @@ export default function ChatWidget() {
               placeholder="Ask a question"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              disabled={loading || streaming}
             />
-            <button className="bg-blue-600 text-white text-sm px-3 py-1 rounded" onClick={send}>
-              Send
+            <button
+              className="bg-blue-600 text-white text-sm px-3 py-1 rounded disabled:opacity-50"
+              onClick={send}
+              disabled={loading || streaming}
+            >
+              {loading ? '...' : 'Send'}
+            </button>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Streaming uses /chat/stream</span>
+            <button
+              className="text-blue-600 disabled:opacity-50"
+              onClick={sendStream}
+              disabled={streaming || loading}
+            >
+              {streaming ? 'Streaming...' : 'Stream'}
             </button>
           </div>
         </div>

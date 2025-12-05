@@ -10,8 +10,13 @@ from jose import JWTError, jwt
 from typing import Optional, List
 import os
 import logging
+import hashlib
 from datetime import datetime, timedelta
 from enum import Enum
+from sqlalchemy.orm import Session
+
+from db.session import get_session
+from db.base import ApiKey
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
@@ -74,17 +79,19 @@ def verify_token(token: str) -> dict:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_session)
 ) -> User:
     """
     Get current authenticated user from JWT token.
     
-    For development: Returns a mock user if no token provided.
+    For development: Returns a mock user if no token provided AND ALLOW_DEV_BYPASS=true.
     """
     environment = os.getenv("ENVIRONMENT", "development")
+    allow_dev_bypass = os.getenv("ALLOW_DEV_BYPASS", "false").lower() == "true"
     
-    # Skip auth in development if no token provided
-    if environment == "development" and not credentials:
+    # Skip auth only if explicitly allowed in dev
+    if environment == "development" and allow_dev_bypass and not credentials:
         return User(
             user_id="dev_user",
             email="dev@example.com",
@@ -99,6 +106,23 @@ async def get_current_user(
         )
     
     token = credentials.credentials
+    # First try API key
+    if token.startswith("pk_"):
+        key_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        api_key = db.query(ApiKey).filter(ApiKey.key_hash == key_hash).one_or_none()
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key",
+            )
+        if api_key.expires_at and api_key.expires_at < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key expired",
+            )
+        return User(user_id=str(api_key.id), email=api_key.created_by or "api-key", roles=[Role.VIEWER])
+
+    # Then try JWT
     payload = verify_token(token)
     
     user_id: str = payload.get("sub")
