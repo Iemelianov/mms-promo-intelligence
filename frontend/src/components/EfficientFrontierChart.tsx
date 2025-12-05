@@ -18,3 +18,5 @@ export default function EfficientFrontierChart({ scenarios }: { scenarios: Point
   )
 }
 
+
+

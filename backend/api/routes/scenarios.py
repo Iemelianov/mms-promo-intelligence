@@ -62,7 +62,8 @@ def _model_to_promo_scenario(model: ScenarioModel) -> PromoScenario:
         channels=json.loads(model.channels or "[]"),
         discount_percentage=model.discount_percentage,
         segments=json.loads(model.segments or "[]") if model.segments else None,
-        metadata=json.loads(model.metadata or "{}") if model.metadata else None,
+        # Always return a dict to avoid AttributeError on callers using .get()
+        metadata=json.loads(model.metadata or "{}") if model.metadata else {},
     )
 
 
@@ -155,10 +156,12 @@ async def create_scenario(
     dept = scenario.departments[0] if scenario.departments else "unknown"
     channel = scenario.channels[0] if scenario.channels else "unknown"
 
+    scenario_type = payload.scenario_type if payload is not None and payload.scenario_type else "balanced"
+
     response = {
         "scenario": {
             "id": stored.id,
-            "label": payload.scenario_type if payload else "balanced",
+            "label": scenario_type,
             "date_range": {
                 "start": stored.date_start.isoformat(),
                 "end": stored.date_end.isoformat(),
