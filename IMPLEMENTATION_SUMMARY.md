@@ -105,6 +105,10 @@ This document summarizes what has been implemented as part of the delivery plan.
 - Scenario Lab: створення сценарію → `/scenarios/create`, оцінка KPI → `/scenarios/evaluate`, порівняння `/scenarios/compare`, валідація `/scenarios/validate`; збереження сценаріїв і вибору у Zustand.
 - Optimization: форма цілей/обмежень → `/optimization/optimize`, вивід оптимізованих сценаріїв, frontier `/optimization/frontier`, ранжування `/optimization/rank`.
 - Creative: генерація брифу `/creative/brief` та assets `/creative/assets` для вибраного сценарію.
+- Post-mortem: екран для виклику `/postmortem/analyze`, відображення forecast vs actual, помилки, інсайти.
+- KPI breakdowns в UI: табличне відображення канал/департамент/сегмент, якщо повертається бекендом.
+- Персистентність сценаріїв у фронті (localStorage) через Zustand.
+- Чат: інтеграція з `/chat/message`, показ suggestions, тости для помилок.
 
 ## Platform & Quality
 

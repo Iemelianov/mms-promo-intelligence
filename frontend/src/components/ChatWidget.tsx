@@ -7,6 +7,7 @@ export default function ChatWidget() {
   const [message, setMessage] = useState('')
   const [history, setHistory] = useState<string[]>([])
   const chat = useChat()
+  const [suggestions, setSuggestions] = useState<string[]>([])
 
   const send = () => {
     if (!message) return
@@ -18,6 +19,7 @@ export default function ChatWidget() {
       {
         onSuccess: (res) => {
           setHistory((h) => [...h, `Co-Pilot: ${res.response}`])
+          setSuggestions(res.suggestions || [])
         },
         onError: () => {
           notifyError('Chat request failed')
@@ -42,6 +44,22 @@ export default function ChatWidget() {
               <div key={idx}>{h}</div>
             ))}
           </div>
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {suggestions.map((s, idx) => (
+                <button
+                  key={idx}
+                  className="bg-gray-100 px-2 py-1 rounded border"
+                  onClick={() => {
+                    setMessage(s)
+                    send()
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               className="border rounded px-2 py-1 text-sm flex-1"
