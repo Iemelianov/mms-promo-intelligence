@@ -93,6 +93,13 @@ This document summarizes what has been implemented as part of the delivery plan.
 - Data API client
 - Located in `frontend/src/services/api.ts`
 
+### ✅ State & Data Infra
+- React Query client defaults (`frontend/src/lib/queryClient.ts`)
+- Typed React Query hooks for discovery, scenarios, optimization, creative, data (`frontend/src/hooks/`)
+- Shared domain/API types aligned with backend schemas (`frontend/src/types.ts`)
+- Zustand stores for filters and scenario selection (`frontend/src/store/`)
+- `.env.example` for frontend (`frontend/.env.example`) and README updated with setup notes
+
 ## Platform & Quality
 
 ### ✅ Configuration & Secrets
