@@ -54,14 +54,12 @@ VITE_API_URL=http://localhost:8000
 
 ```bash
 cd backend
-python scripts/load_sample_data.py
+python data/seed.py  # loads sample_sales.csv into DuckDB
 ```
 
 This will:
-- Create database schema
-- Load sample sales data (CSV)
-- Load mock CDP segments
-- Create sample promotional catalog
+- Create a DuckDB file (or use DATABASE_URL)
+- Load sample sales data (CSV) for deterministic demo responses
 
 ### 5. Run Application
 

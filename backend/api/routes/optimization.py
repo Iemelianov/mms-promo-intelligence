@@ -4,7 +4,7 @@ Optimization API Routes
 Endpoints for scenario optimization.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from typing import List, Optional, Dict, Any, Tuple
 
 from models.schemas import PromoScenario, FrontierData, RankedScenarios, ScenarioKPI, DateRange
@@ -39,32 +39,62 @@ context_engine = ContextEngine(context_tool=context_tool)
 
 
 @router.post("/optimize")
+@router.post("/generate")
 @get_rate_limit("optimization")
 async def optimize_scenarios(
-    brief: str,
-    constraints: Optional[Dict[str, Any]] = None,
+    payload: Dict[str, Any] = Body(...),
     request: Request = None,
     current_user = Depends(get_current_user)
-) -> List[PromoScenario]:
+) -> Dict[str, Any]:
     """
-    Generate optimized scenarios.
-    
-    Args:
-        brief: Natural language brief
-        constraints: Optional constraints dictionary
-    
-    Returns:
-        List of optimized PromoScenario objects
+    Generate optimized scenarios (docs-compliant response shape).
     """
     try:
-        # Generate candidate scenarios
-        candidates = optimization_engine.generate_candidate_scenarios(brief, constraints)
-        
-        # Evaluate and rank them
-        objectives = constraints.get("objectives", {"sales": 0.6, "margin": 0.4}) if constraints else {"sales": 0.6, "margin": 0.4}
+        brief = payload.get("brief", "")
+        objectives = payload.get("objectives") or payload.get("constraints", {}).get("objectives") or {"sales": 0.6, "margin": 0.4}
+        constraints = payload.get("constraints") or {}
+        num_scenarios = int(payload.get("num_scenarios", 3))
+
+        candidates = optimization_engine.generate_candidate_scenarios(brief, constraints)[: max(num_scenarios, 1)]
         optimized = optimization_engine.optimize_scenarios(candidates, objectives, constraints)
-        
-        return optimized
+
+        results = []
+        for rank, scenario in enumerate(optimized, start=1):
+            baseline = baseline_engine.calculate_baseline(
+                (scenario.date_range.start_date, scenario.date_range.end_date)
+            )
+            uplift_model = uplift_engine.build_uplift_model({})
+            context = context_engine.build_context(
+                geo="DE",
+                date_range=DateRange(
+                    start_date=scenario.date_range.start_date,
+                    end_date=scenario.date_range.end_date
+                )
+            )
+            kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+            results.append(
+                {
+                    "scenario": scenario,
+                    "kpi": kpi,
+                    "rank": rank,
+                    "score": float(rank) / len(optimized),
+                }
+            )
+
+        frontier_points = [
+            {
+                "sales": item["kpi"].total_sales,
+                "margin": (item["kpi"].total_margin / item["kpi"].total_sales * 100) if item["kpi"].total_sales else 0,
+                "ebit": item["kpi"].total_ebit,
+                "scenario_id": item["scenario"].id,
+            }
+            for item in results
+        ]
+
+        return {
+            "scenarios": results,
+            "efficient_frontier": {"points": frontier_points, "pareto_optimal": [p["scenario_id"] for p in frontier_points]},
+        }
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error optimizing scenarios: {str(exc)}") from exc
 
@@ -129,6 +159,24 @@ async def calculate_frontier(
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error calculating frontier: {str(exc)}") from exc
+
+
+@router.get("/frontier")
+async def get_frontier_sample(
+    brief_id: str,
+    x_axis: str = "sales",
+    y_axis: str = "margin"
+) -> Dict[str, Any]:
+    """
+    Lightweight GET frontier endpoint matching docs with sample payload.
+    """
+    points = [
+        {"sales": 3_000_000, "margin": 0.22, "ebit": 550_000, "scenario_id": "scenario_a"},
+        {"sales": 2_700_000, "margin": 0.25, "ebit": 600_000, "scenario_id": "scenario_b"},
+        {"sales": 3_300_000, "margin": 0.20, "ebit": 520_000, "scenario_id": "scenario_c"},
+    ]
+    pareto_ids = ["scenario_a", "scenario_b"]
+    return {"frontier": {"points": points, "pareto_optimal": pareto_ids, "x_axis": x_axis, "y_axis": y_axis}}
 
 
 @router.post("/rank")

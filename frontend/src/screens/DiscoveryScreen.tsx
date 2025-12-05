@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { discoveryApi } from '../services/api'
+import { dataApi, discoveryApi } from '../services/api'
 import GapVsTargetChart from '../components/charts/GapVsTargetChart'
 import DepartmentHeatmap from '../components/charts/DepartmentHeatmap'
 import ContextWidget from '../components/ContextWidget'
@@ -9,7 +9,15 @@ import OpportunitiesList from '../components/OpportunitiesList'
 export default function DiscoveryScreen() {
   const [month, setMonth] = useState('2024-10')
   const [geo, setGeo] = useState('DE')
-  
+
+  const monthRange = useMemo(() => {
+    const [year, monthStr] = month.split('-').map(Number)
+    const end = new Date(year, monthStr, 0).getDate()
+    const startDate = `${month}-01`
+    const endDate = `${month}-${String(end).padStart(2, '0')}`
+    return { startDate, endDate }
+  }, [month])
+
   const { data: opportunities, isLoading: opportunitiesLoading } = useQuery({
     queryKey: ['opportunities', month, geo],
     queryFn: () => discoveryApi.getOpportunities(month, geo).then(res => res.data),
@@ -22,14 +30,39 @@ export default function DiscoveryScreen() {
     enabled: !!month && !!geo,
   })
 
-  const gapChartData = [
-    { date: '2024-10-01', actual: 200000, target: 220000 },
-    { date: '2024-10-02', actual: 210000, target: 220000 },
-  ]
-  const deptHeatmapData = [
-    { name: 'TV', gap_pct: -8, sales_value: 500000 },
-    { name: 'Gaming', gap_pct: 5, sales_value: 300000 },
-  ]
+  const { data: baseline } = useQuery({
+    queryKey: ['baseline', month, geo],
+    queryFn: () => dataApi.getBaseline(monthRange.startDate, monthRange.endDate).then(res => res.data),
+    enabled: !!monthRange.startDate,
+  })
+
+  const { data: contextData } = useQuery({
+    queryKey: ['context', geo, month],
+    queryFn: () => discoveryApi.getContext(geo, monthRange.startDate, monthRange.endDate).then(res => res.data?.context ?? res.data),
+    enabled: !!geo && !!monthRange.startDate,
+  })
+
+  const gapChartData = useMemo(() => {
+    if (!baseline?.daily_projections) return []
+    const entries = Object.entries(baseline.daily_projections)
+    const totalDays = entries.length || 1
+    const targetTotal = baseline.total_sales - (gaps?.sales_gap ?? 0)
+    const targetPerDay = targetTotal / totalDays
+    return entries.map(([date, vals]) => ({
+      date,
+      actual: vals.sales,
+      target: targetPerDay,
+    }))
+  }, [baseline, gaps])
+
+  const deptHeatmapData = useMemo(() => {
+    if (!opportunities) return []
+    return opportunities.map((opp: any) => ({
+      name: opp.department,
+      gap_pct: (opp.estimated_potential / 1000000) * -1,
+      sales_value: opp.estimated_potential,
+    }))
+  }, [opportunities])
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -57,7 +90,7 @@ export default function DiscoveryScreen() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Gap vs Target</h3>
-        <GapVsTargetChart data={gapChartData} />
+        {gapsLoading ? <div>Loading...</div> : <GapVsTargetChart data={gapChartData} />}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -67,7 +100,7 @@ export default function DiscoveryScreen() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Context</h3>
-          <ContextWidget />
+          <ContextWidget context={contextData} />
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Opportunities</h3>

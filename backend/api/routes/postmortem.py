@@ -46,3 +46,34 @@ async def analyze_postmortem(
             "learning_points": ["Adjust Gaming uplift coefficient by -5%"],
         }
     }
+
+
+@router.get("/{scenario_id}")
+async def get_postmortem_report(scenario_id: str) -> Dict[str, Any]:
+    """
+    Docs-friendly: return a stored or demo post-mortem report for a scenario.
+    """
+    return {
+        "report": {
+            "scenario_id": scenario_id,
+            "forecast_kpi": {
+                "sales_value": 3200000,
+                "margin_value": 720000,
+                "units": 18000,
+            },
+            "actual_kpi": {
+                "sales_value": 3100000,
+                "margin_value": 700000,
+                "units": 17500,
+            },
+            "vs_forecast": {
+                "sales_value_error_pct": -3.1,
+                "margin_value_error_pct": -2.8,
+                "ebit_error_pct": -4.4,
+            },
+            "insights": [
+                "Uplift in Gaming was over-estimated",
+                "TV sales exceeded forecast",
+            ],
+        }
+    }

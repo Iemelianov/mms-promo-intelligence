@@ -9,14 +9,15 @@ import functools
 import time
 from typing import Callable, Any, Optional
 from contextlib import contextmanager
+from inspect import iscoroutinefunction
 
 logger = logging.getLogger(__name__)
 
 # Try to import Phoenix
 try:
-    from phoenix.trace import tracer
+    from phoenix.trace import tracer  # type: ignore
     PHOENIX_AVAILABLE = True
-except ImportError:
+except Exception:
     PHOENIX_AVAILABLE = False
     tracer = None
 
@@ -105,7 +106,7 @@ def trace_function(
                 )
                 raise
         
-        if functools.iscoroutinefunction(func):
+        if iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper

@@ -40,8 +40,8 @@ try:
         logger.info("Phoenix observability enabled")
     else:
         logger.info("Phoenix API key not found, observability disabled")
-except ImportError:
-    logger.warning("Phoenix not installed, observability disabled")
+except Exception:
+    logger.warning("Phoenix not installed or incompatible, observability disabled")
 
 app = FastAPI(
     title="Promo Scenario Co-Pilot API",
@@ -54,9 +54,12 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # CORS middleware
+default_cors_origins = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
+cors_origins = os.getenv("CORS_ORIGINS", default_cors_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=[origin.strip() for origin in cors_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +76,7 @@ class Settings(BaseModel):
     database_url: str
     jwt_secret_key: str
     environment: str = "development"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = default_cors_origins
 
 
 def validate_settings():

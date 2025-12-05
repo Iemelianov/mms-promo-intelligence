@@ -12,7 +12,7 @@ def client() -> TestClient:
 def test_optimize_scenarios(client: TestClient):
     """Test optimization endpoint."""
     response = client.post(
-        "/api/v1/optimization/optimize",
+        "/api/v1/optimization/generate",
         json={
             "brief": "Maximize sales for TV department",
             "constraints": {
@@ -24,10 +24,10 @@ def test_optimize_scenarios(client: TestClient):
     )
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
-    assert "id" in data[0]
-    assert "discount_percentage" in data[0]
+    assert "scenarios" in data
+    assert len(data["scenarios"]) > 0
+    first = data["scenarios"][0]
+    assert "scenario" in first and "kpi" in first
 
 
 def test_calculate_frontier(client: TestClient):

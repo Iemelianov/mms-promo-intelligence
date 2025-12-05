@@ -15,24 +15,26 @@ def test_create_scenario(client: TestClient):
     response = client.post(
         "/api/v1/scenarios/create",
         json={
-            "brief": "Test promotional scenario",
+            "brief": {
+                "month": "2024-10",
+                "promo_date_range": {"start": "2024-10-01", "end": "2024-10-07"},
+                "focus_departments": ["TV", "Gaming"],
+                "objectives": {"geo": "DE"},
+                "constraints": {"max_discount_pct": 25}
+            },
+            "scenario_type": "balanced",
             "parameters": {
                 "name": "Test Scenario",
-                "date_range": {
-                    "start_date": "2024-10-01",
-                    "end_date": "2024-10-31"
-                },
-                "departments": ["TV", "Gaming"],
-                "channels": ["online", "store"],
                 "discount_percentage": 15.0
-            }
+            },
         }
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "Test Scenario"
-    assert data["discount_percentage"] == 15.0
-    assert "id" in data
+    assert "scenario" in data
+    assert data["scenario"]["name"] == "Test Scenario"
+    assert "kpi" in data
+    assert "validation" in data
 
 
 def test_evaluate_scenario(client: TestClient):
@@ -52,10 +54,8 @@ def test_evaluate_scenario(client: TestClient):
     response = client.post("/api/v1/scenarios/evaluate", json=scenario)
     assert response.status_code == 200
     data = response.json()
-    assert "total_sales" in data
-    assert "total_margin" in data
-    assert "total_ebit" in data
-    assert data["total_sales"] > 0
+    assert "kpi" in data
+    assert data["kpi"]["total_sales"] > 0
 
 
 def test_validate_scenario(client: TestClient):

@@ -27,8 +27,8 @@ export const scenariosApi = {
     apiClient.post(`/api/v1/scenarios/create`, { brief, parameters }),
   evaluate: (scenario: any) =>
     apiClient.post(`/api/v1/scenarios/evaluate`, scenario),
-  compare: (scenarios: any[]) =>
-    apiClient.post(`/api/v1/scenarios/compare`, scenarios),
+  compare: (scenarios: any[], scenarioIds?: string[]) =>
+    apiClient.post(`/api/v1/scenarios/compare`, { scenarios, scenario_ids: scenarioIds }),
   validate: (scenario: any, kpi?: any) =>
     apiClient.post(`/api/v1/scenarios/validate`, { scenario, kpi }),
 }
@@ -36,15 +36,17 @@ export const scenariosApi = {
 // Optimization API
 export const optimizationApi = {
   optimize: (brief: string, constraints?: any) =>
-    apiClient.post(`/api/v1/optimization/optimize`, { brief, constraints }),
-  frontier: (scenarios: any[]) =>
-    apiClient.post(`/api/v1/optimization/frontier`, scenarios),
+    apiClient.post(`/api/v1/optimization/generate`, { brief, constraints }),
+  frontier: (params?: any) =>
+    apiClient.get(`/api/v1/optimization/frontier`, { params }),
   rank: (scenarios: any[], weights?: any) =>
     apiClient.post(`/api/v1/optimization/rank`, { scenarios, weights }),
 }
 
 // Creative API
 export const creativeApi = {
+  generate: (payload: any) =>
+    apiClient.post(`/api/v1/creative/generate`, payload),
   finalize: (scenarios: any[]) =>
     apiClient.post(`/api/v1/creative/finalize`, scenarios),
   brief: (scenario: any, segments?: string[]) =>
@@ -66,4 +68,7 @@ export const dataApi = {
     apiClient.get(`/api/v1/data/quality`, { params: { dataset_id: datasetId } }),
   getBaseline: (startDate: string, endDate: string) =>
     apiClient.get(`/api/v1/data/baseline`, { params: { start_date: startDate, end_date: endDate } }),
+  getSegments: () => apiClient.get(`/api/v1/data/segments`),
+  getUpliftModel: (department?: string, channel?: string) =>
+    apiClient.get(`/api/v1/data/uplift-model`, { params: { department, channel } }),
 }
