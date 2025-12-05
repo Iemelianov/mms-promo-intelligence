@@ -20,7 +20,7 @@ from typing import Optional, Dict, Any
 from langchain.agents import AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 
-from ..models.schemas import PromoScenario, ValidationReport
+from models.schemas import PromoScenario, ValidationReport
 
 
 class CoPilotAgent:

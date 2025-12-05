@@ -15,12 +15,12 @@ from typing import List, Optional
 from langchain.agents import AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 
-from ..models.schemas import PromoOpportunity, PromoContext, GapAnalysis
-from ..engines.context_engine import ContextEngine
-from ..engines.forecast_baseline_engine import ForecastBaselineEngine
-from ..tools.context_data_tool import ContextDataTool
-from ..tools.weather_tool import WeatherTool
-from ..tools.targets_config_tool import TargetsConfigTool
+from models.schemas import PromoOpportunity, PromoContext, GapAnalysis
+from engines.context_engine import ContextEngine
+from engines.forecast_baseline_engine import ForecastBaselineEngine
+from tools.context_data_tool import ContextDataTool
+from tools.weather_tool import WeatherTool
+from tools.targets_config_tool import TargetsConfigTool
 
 
 class DiscoveryAgent:

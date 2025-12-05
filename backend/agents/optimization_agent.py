@@ -13,10 +13,10 @@ Responsibilities:
 from typing import List, Optional, Dict, Any
 from langchain.agents import AgentExecutor
 
-from ..models.schemas import PromoScenario, FrontierData, RankedScenarios
-from ..engines.scenario_optimization_engine import ScenarioOptimizationEngine
-from ..engines.scenario_evaluation_engine import ScenarioEvaluationEngine
-from ..engines.validation_engine import ValidationEngine
+from models.schemas import PromoScenario, FrontierData, RankedScenarios
+from engines.scenario_optimization_engine import ScenarioOptimizationEngine
+from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
+from engines.validation_engine import ValidationEngine
 
 
 class OptimizationAgent:
