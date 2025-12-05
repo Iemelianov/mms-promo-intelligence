@@ -5,6 +5,7 @@ import { useCompareScenarios, useCreateScenario, useEvaluateScenario, useValidat
 import { PromoScenario, ScenarioKPI } from '../types'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
+import { notifyError, notifySuccess } from '../lib/toast'
 
 export default function ScenarioLabScreen() {
   const [brief, setBrief] = useState('Promo for TVs & Gaming 22-27 Oct')
@@ -41,8 +42,10 @@ export default function ScenarioLabScreen() {
       addScenarioId(scenario.id!)
       setSelectedId(scenario.id)
       setKpi(scenario.id!, kpi)
+      notifySuccess('Scenario generated and evaluated')
     } catch (e) {
       console.error('Failed to create/evaluate scenario', e)
+      notifyError('Failed to create/evaluate scenario')
     }
   }
 
@@ -55,8 +58,10 @@ export default function ScenarioLabScreen() {
       comparison.forEach((kpi) => {
         setKpi(kpi.scenario_id, kpi)
       })
+      notifySuccess('Compared scenarios')
     } catch (e) {
       console.error('Failed to compare scenarios', e)
+      notifyError('Failed to compare scenarios')
     }
   }
 
@@ -69,9 +74,11 @@ export default function ScenarioLabScreen() {
           ? 'Validation passed'
           : `Issues: ${validation.issues.join(', ') || 'Unknown issues'}`
       )
+      notifySuccess(validation.is_valid ? 'Validation passed' : 'Validation returned issues')
     } catch (e) {
       console.error('Failed to validate scenario', e)
       setValidationMsg('Validation failed')
+      notifyError('Validation failed')
     }
   }
 

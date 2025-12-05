@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useDiscoveryAnalyze, useDiscoveryContext } from '../hooks/useDiscovery'
 import { useFiltersStore } from '../store/useFiltersStore'
+import { notifyError } from '../lib/toast'
 import GapVsTargetChart from '../components/charts/GapVsTargetChart'
 import DepartmentHeatmap from '../components/charts/DepartmentHeatmap'
 import ContextWidget from '../components/ContextWidget'
