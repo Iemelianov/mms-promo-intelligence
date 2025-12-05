@@ -23,3 +23,4 @@ export default function OpportunitiesList({ opportunities, onSelect }: Props) {
     </div>
   )
 }
+

@@ -18,3 +18,4 @@ export default function CreativeBriefView({ brief }: { brief: any }) {
     </div>
   )
 }
+

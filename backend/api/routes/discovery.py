@@ -4,18 +4,20 @@ Discovery API Routes
 Endpoints for discovery and context analysis.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import date
 from calendar import monthrange
 
 from models.schemas import PromoOpportunity, PromoContext, GapAnalysis, DateRange
+from middleware.auth import get_current_user, require_analyst
+from middleware.rate_limit import get_rate_limit
 from engines.forecast_baseline_engine import ForecastBaselineEngine
 from tools.sales_data_tool import SalesDataTool
 from tools.context_data_tool import ContextDataTool
 from tools.targets_config_tool import TargetsConfigTool
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 sales_tool = SalesDataTool()
 context_tool = ContextDataTool()
@@ -49,10 +51,12 @@ def _build_context(geo: str, start_date: date, end_date: date) -> PromoContext:
 
 
 @router.get("/opportunities")
+@get_rate_limit("standard")
 async def get_opportunities(
     month: str,
     geo: str,
-    targets: Optional[dict] = None
+    targets: Optional[dict] = None,
+    current_user=Depends(require_analyst),
 ) -> List[PromoOpportunity]:
     """
     Analyze situation and identify promotional opportunities.
@@ -96,10 +100,12 @@ async def get_opportunities(
 
 
 @router.get("/context")
+@get_rate_limit("standard")
 async def get_context(
     geo: str,
     start_date: date,
-    end_date: date
+    end_date: date,
+    current_user=Depends(require_analyst),
 ) -> PromoContext:
     """
     Get comprehensive context for promotional planning.
@@ -119,10 +125,12 @@ async def get_context(
 
 
 @router.get("/gaps")
+@get_rate_limit("standard")
 async def get_gaps(
     month: str,
     geo: str,
-    targets: Optional[dict] = None
+    targets: Optional[dict] = None,
+    current_user=Depends(require_analyst),
 ) -> GapAnalysis:
     """
     Identify gaps between baseline and targets.
@@ -155,10 +163,12 @@ async def get_gaps(
 
 
 @router.post("/analyze")
+@get_rate_limit("standard")
 async def analyze(
     month: str,
     geo: str,
-    targets: Optional[dict] = None
+    targets: Optional[dict] = None,
+    current_user=Depends(require_analyst),
 ) -> dict:
     """Analyze situation and identify opportunities with baseline and gaps."""
     start_date, end_date = _month_to_range(month)

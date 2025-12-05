@@ -4,12 +4,12 @@ Optimization API Routes
 Endpoints for scenario optimization.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from typing import List, Optional, Dict, Any, Tuple
 
 from models.schemas import PromoScenario, FrontierData, RankedScenarios, ScenarioKPI, DateRange
 from middleware.rate_limit import get_rate_limit
-from middleware.auth import get_current_user
+from middleware.auth import get_current_user, require_analyst
 from middleware.errors import NotFoundError, ProcessingError
 from engines.scenario_optimization_engine import ScenarioOptimizationEngine
 from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
@@ -21,7 +21,7 @@ from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
 from tools.context_data_tool import ContextDataTool
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Initialize engines and tools
 sales_tool = SalesDataTool()
@@ -44,7 +44,7 @@ async def optimize_scenarios(
     brief: str,
     constraints: Optional[Dict[str, Any]] = None,
     request: Request = None,
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_analyst)
 ) -> List[PromoScenario]:
     """
     Generate optimized scenarios.
@@ -70,8 +70,10 @@ async def optimize_scenarios(
 
 
 @router.post("/frontier")
+@get_rate_limit("standard")
 async def calculate_frontier(
-    scenarios: List[PromoScenario]
+    scenarios: List[PromoScenario] = Body(...),
+    current_user=Depends(require_analyst),
 ) -> FrontierData:
     """
     Calculate efficient frontier.
@@ -132,9 +134,11 @@ async def calculate_frontier(
 
 
 @router.post("/rank")
+@get_rate_limit("standard")
 async def rank_scenarios(
-    scenarios: List[PromoScenario],
-    weights: Optional[Dict[str, float]] = None
+    scenarios: List[PromoScenario] = Body(...),
+    weights: Optional[Dict[str, float]] = Body(default=None),
+    current_user=Depends(require_analyst),
 ) -> RankedScenarios:
     """
     Rank scenarios by objectives.

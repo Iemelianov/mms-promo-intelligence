@@ -41,3 +41,4 @@ CREATE TABLE IF NOT EXISTS api_keys (
     created_at TIMESTAMP DEFAULT NOW(),
     created_by TEXT
 );
+

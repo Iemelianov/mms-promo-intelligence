@@ -14,7 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel, ValidationError
 
-from .routes import discovery, scenarios, optimization, creative, data, auth
+from .routes import discovery, scenarios, optimization, creative, data, auth, postmortem, chat
 from middleware.errors import (
     APIError,
     api_error_handler,
@@ -23,6 +23,8 @@ from middleware.errors import (
     general_exception_handler
 )
 from middleware.rate_limit import limiter, rate_limit_exceeded_handler
+from db.base import Base
+from db.session import engine
 
 # Setup logging
 logging.basicConfig(
@@ -93,6 +95,11 @@ def validate_settings():
 async def startup_event():
     """Startup tasks."""
     validate_settings()
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables ensured")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Could not initialize database tables: {exc}")
 
 # Request ID and logging middleware
 @app.middleware("http")
@@ -141,6 +148,8 @@ app.include_router(scenarios.router, prefix="/api/v1/scenarios", tags=["scenario
 app.include_router(optimization.router, prefix="/api/v1/optimization", tags=["optimization"])
 app.include_router(creative.router, prefix="/api/v1/creative", tags=["creative"])
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
+app.include_router(postmortem.router, prefix="/api/v1/postmortem", tags=["postmortem"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 
 @app.get("/")
