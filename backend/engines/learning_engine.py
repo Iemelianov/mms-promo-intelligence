@@ -14,7 +14,7 @@ Methodology:
 
 from typing import List, Optional
 
-from ..models.schemas import PostMortemReport, UpliftModel
+from models.schemas import PostMortemReport, UpliftModel
 
 
 class LearningEngine:

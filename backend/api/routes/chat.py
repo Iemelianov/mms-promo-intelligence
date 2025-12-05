@@ -2,7 +2,7 @@
 Chat API routes.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Generator
@@ -23,6 +23,7 @@ class ChatRequest(BaseModel):
 @get_rate_limit("chat")
 async def chat_message(
     payload: ChatRequest,
+    request: Request,
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Return a single chat response."""
@@ -48,6 +49,7 @@ def _stream_response(text: str) -> Generator[bytes, None, None]:
 @get_rate_limit("chat")
 async def chat_stream(
     payload: ChatRequest,
+    request: Request,
     current_user=Depends(get_current_user),
 ) -> StreamingResponse:
     """Stream chat response via SSE."""
