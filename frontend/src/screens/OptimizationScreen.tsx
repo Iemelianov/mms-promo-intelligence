@@ -6,6 +6,8 @@ import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { PromoScenario } from '../types'
 import { notifyError, notifySuccess } from '../lib/toast'
+import { EmptyState, LoadingState } from '../components/Status'
+import { formatNumber } from '../utils/format'
 
 export default function OptimizationScreen() {
   const [brief, setBrief] = useState('Optimize October promo')
@@ -100,7 +102,7 @@ export default function OptimizationScreen() {
           <ObjectivesForm onSubmit={handleOptimize} />
         </div>
         <div className="bg-white rounded-lg shadow p-6 lg:col-span-2 space-y-4">
-          <EfficientFrontierChart scenarios={frontierPoints} />
+          {optimize.isPending || frontier.isPending ? <LoadingState /> : <EfficientFrontierChart scenarios={frontierPoints} />}
           <div>
             <h3 className="font-semibold mb-2">Rankings</h3>
             {rankings.length ? (
@@ -113,24 +115,26 @@ export default function OptimizationScreen() {
                 ))}
               </ul>
             ) : (
-              <div className="text-gray-500 text-sm">No rankings yet</div>
+              <EmptyState message="No rankings yet" />
             )}
           </div>
         </div>
       </div>
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="font-semibold mb-2">Optimized Scenarios</h3>
-        {optimized.length ? (
+        {optimize.isPending ? (
+          <LoadingState />
+        ) : optimized.length ? (
           <ul className="text-sm space-y-1">
             {optimized.map((s) => (
               <li key={s.id || s.name} className="flex justify-between">
                 <span>{s.name}</span>
-                <span className="text-gray-600">{s.discount_percentage}% discount</span>
+                <span className="text-gray-600">{formatNumber(s.discount_percentage)}% discount</span>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="text-gray-500 text-sm">No optimized scenarios yet</div>
+          <EmptyState message="No optimized scenarios yet" />
         )}
       </div>
     </div>
