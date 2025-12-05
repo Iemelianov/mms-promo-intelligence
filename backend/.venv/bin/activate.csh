@@ -11,7 +11,7 @@ deactivate nondestructive
 setenv VIRTUAL_ENV /Users/anton/Dev/cursor/mms-promo-intelligence/backend/.venv
 
 set _OLD_VIRTUAL_PATH="$PATH"
-setenv PATH "$VIRTUAL_ENV/"bin":$PATH"
+setenv PATH "$VIRTUAL_ENV/bin:$PATH"
 
 
 set _OLD_VIRTUAL_PROMPT="$prompt"

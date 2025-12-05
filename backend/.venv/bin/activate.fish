@@ -36,7 +36,7 @@ deactivate nondestructive
 set -gx VIRTUAL_ENV /Users/anton/Dev/cursor/mms-promo-intelligence/backend/.venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
-set -gx PATH "$VIRTUAL_ENV/"bin $PATH
+set -gx PATH "$VIRTUAL_ENV/bin" $PATH
 
 # Unset PYTHONHOME if set.
 if set -q PYTHONHOME
