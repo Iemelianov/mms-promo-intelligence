@@ -312,3 +312,4 @@ class WeatherTool:
             logger.error(f"Error fetching historical weather: {str(e)}")
             raise
 
+

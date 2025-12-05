@@ -113,7 +113,9 @@ class DatabaseLoaderTool:
         self,
         df: pd.DataFrame,
         table_name: str = 'sales_aggregated',
-        if_exists: str = 'append'
+        if_exists: str = 'append',
+        upsert: bool = False,
+        conflict_keys: Optional[list] = None
     ) -> Dict:
         """
         Load DataFrame into database.
@@ -163,24 +165,51 @@ class DatabaseLoaderTool:
             # Create table if not exists
             self.create_table_if_not_exists(table_name)
             
-            # Load data
+            # Load data with optional upsert
             rows_before = self._count_rows(table_name)
-            
-            if self.database_url.startswith('duckdb://'):
-                # DuckDB load
-                self.engine.execute(f"INSERT INTO {table_name} SELECT * FROM df_load")
+
+            if upsert and conflict_keys:
+                if self.database_url.startswith('duckdb://'):
+                    # DuckDB MERGE
+                    self.engine.register('df_temp', df_load)
+                    conflict = ", ".join(conflict_keys)
+                    assignments = ", ".join([f"{col}=excluded.{col}" for col in df_load.columns])
+                    merge_sql = f"""
+                    CREATE OR REPLACE TEMP TABLE tmp_load AS SELECT * FROM df_temp;
+                    INSERT INTO {table_name}
+                    SELECT * FROM tmp_load
+                    ON CONFLICT ({conflict}) DO UPDATE SET {assignments};
+                    """
+                    self.engine.execute(merge_sql)
+                else:
+                    # PostgreSQL upsert via ON CONFLICT
+                    with self.engine.begin() as conn:
+                        tmp_table = f"{table_name}_tmp_load"
+                        df_load.to_sql(tmp_table, conn, if_exists='replace', index=False)
+                        conflict = ", ".join(conflict_keys)
+                        columns = ", ".join(df_load.columns)
+                        assignments = ", ".join([f"{col}=EXCLUDED.{col}" for col in df_load.columns if col not in conflict_keys])
+                        upsert_sql = f"""
+                        INSERT INTO {table_name} ({columns})
+                        SELECT {columns} FROM {tmp_table}
+                        ON CONFLICT ({conflict}) DO UPDATE SET {assignments};
+                        DROP TABLE {tmp_table};
+                        """
+                        conn.execute(text(upsert_sql))
             else:
-                # PostgreSQL load
-                df_load.to_sql(
-                    table_name,
-                    self.engine,
-                    if_exists=if_exists,
-                    index=False,
-                    method='multi'
-                )
-            
+                if self.database_url.startswith('duckdb://'):
+                    self.engine.execute(f"INSERT INTO {table_name} SELECT * FROM df_load")
+                else:
+                    df_load.to_sql(
+                        table_name,
+                        self.engine,
+                        if_exists=if_exists,
+                        index=False,
+                        method='multi'
+                    )
+
             rows_after = self._count_rows(table_name)
-            rows_inserted = rows_after - rows_before
+            rows_inserted = max(rows_after - rows_before, 0)
             
             logger.info(f"Loaded {rows_inserted} rows into {table_name}")
             
@@ -227,4 +256,5 @@ class DatabaseLoaderTool:
             else:
                 self.engine.dispose()
             logger.info("Database connection closed")
+
 
