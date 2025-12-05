@@ -173,6 +173,12 @@ export interface ChatMessageResponse {
   related_data?: Record<string, unknown>
 }
 
+// Utility types for formatting (optional)
+export interface FormattedNumberOptions {
+  minimumFractionDigits?: number
+  maximumFractionDigits?: number
+}
+
 // Data / quality
 export interface QualityReport {
   completeness: number

@@ -14,6 +14,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/scenarios', label: 'Scenario Lab' },
     { path: '/optimization', label: 'Optimization' },
     { path: '/creative', label: 'Creative' },
+    { path: '/postmortem', label: 'Post-Mortem' },
   ]
   
   return (

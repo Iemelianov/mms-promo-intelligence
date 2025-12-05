@@ -16,6 +16,7 @@ import type {
   QualityReport,
   ChatMessageRequest,
   ChatMessageResponse,
+  PostMortemReport,
 } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -140,4 +141,16 @@ export const dataApi = {
 export const chatApi = {
   message: (payload: ChatMessageRequest) =>
     unwrap(apiClient.post<ChatMessageResponse>('/api/v1/chat/message', payload)),
+}
+
+// Post-mortem API
+export const postmortemApi = {
+  analyze: (scenario_id: string, actual_data: Record<string, number>, period: { start: string; end: string }) =>
+    unwrap(
+      apiClient.post<PostMortemReport>('/api/v1/postmortem/analyze', {
+        scenario_id,
+        actual_data,
+        period,
+      })
+    ),
 }
