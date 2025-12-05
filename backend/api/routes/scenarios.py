@@ -9,7 +9,7 @@ import uuid
 from datetime import date
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -144,7 +144,7 @@ async def create_scenario(
             start_date=date.today(),
             end_date=date.today(),
         ),
-        departments=(scenario_brief.focus_departments if scenario_brief else params.get("departments", ["TV", "Gaming"])),
+        departments=(scenario_brief.focus_departments or params.get("departments", ["TV", "Gaming"]) if scenario_brief else params.get("departments", ["TV", "Gaming"])),
         channels=params.get("channels", ["online", "store"]),
         discount_percentage=params.get("discount_percentage", 15.0),
         segments=params.get("segments"),
@@ -152,6 +152,9 @@ async def create_scenario(
     )
 
     stored = _store_promo_scenario(db, scenario, created_by=current_user.user_id)
+    dept = scenario.departments[0] if scenario.departments else "unknown"
+    channel = scenario.channels[0] if scenario.channels else "unknown"
+
     response = {
         "scenario": {
             "id": stored.id,
@@ -162,8 +165,8 @@ async def create_scenario(
             },
             "mechanics": [
                 {
-                    "department": scenario.departments[0],
-                    "channel": scenario.channels[0],
+                    "department": dept,
+                    "channel": channel,
                     "discount_pct": scenario.discount_percentage,
                     "segments": scenario.segments or ["ALL"],
                 }
@@ -281,7 +284,7 @@ async def evaluate_scenario(
 @router.post("/compare")
 @get_rate_limit("standard")
 async def compare_scenarios(
-    scenarios: List[PromoScenario] = None,
+    scenarios: List[PromoScenario] = Body(default=None),
     scenario_ids: Optional[List[str]] = None,
     current_user=Depends(require_analyst),
     db: Session = Depends(get_session),
@@ -342,18 +345,12 @@ async def compare_scenarios(
                 recommendations.append(f"Scenario {best_sales_idx + 1} maximizes sales")
                 recommendations.append(f"Scenario {best_margin_idx + 1} maximizes margin")
         
-        summary = {
-            "best_sales": scenario_ids[0] if scenario_ids else scenarios[0].id,
-            "best_margin": scenario_ids[0] if scenario_ids else scenarios[0].id,
-            "best_ebit": scenario_ids[0] if scenario_ids else scenarios[0].id,
-        }
-        return {
-            "comparison": {
-                "scenarios": [s.model_dump() for s in scenarios],
-                "kpis": [k.model_dump() for k in kpis],
-                "summary": summary,
-            }
-        }
+        return ComparisonReport(
+            scenarios=scenarios,
+            kpis=kpis,
+            comparison_table=comparison_table,
+            recommendations=recommendations,
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error comparing scenarios: {str(exc)}") from exc
 

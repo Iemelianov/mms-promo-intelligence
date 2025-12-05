@@ -4,7 +4,7 @@ Creative API Routes
 Endpoints for creative brief and asset generation.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List, Optional
 from datetime import date, timedelta
 
@@ -26,7 +26,7 @@ creative_engine = CreativeEngine(cdp_tool=cdp_tool, config_tool=config_tool)
 @router.post("/finalize")
 @get_rate_limit("standard")
 async def finalize_campaign(
-    scenarios: List[PromoScenario],
+    scenarios: List[PromoScenario] = Body(...),
     current_user=Depends(require_analyst),
 ) -> CampaignPlan:
     """

@@ -4,7 +4,7 @@ Optimization API Routes
 Endpoints for scenario optimization.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from typing import List, Optional, Dict, Any, Tuple
 
 from models.schemas import PromoScenario, FrontierData, RankedScenarios, ScenarioKPI, DateRange
@@ -72,7 +72,7 @@ async def optimize_scenarios(
 @router.post("/frontier")
 @get_rate_limit("standard")
 async def calculate_frontier(
-    scenarios: List[PromoScenario],
+    scenarios: List[PromoScenario] = Body(...),
     current_user=Depends(require_analyst),
 ) -> FrontierData:
     """
@@ -136,8 +136,8 @@ async def calculate_frontier(
 @router.post("/rank")
 @get_rate_limit("standard")
 async def rank_scenarios(
-    scenarios: List[PromoScenario],
-    weights: Optional[Dict[str, float]] = None,
+    scenarios: List[PromoScenario] = Body(...),
+    weights: Optional[Dict[str, float]] = Body(default=None),
     current_user=Depends(require_analyst),
 ) -> RankedScenarios:
     """
