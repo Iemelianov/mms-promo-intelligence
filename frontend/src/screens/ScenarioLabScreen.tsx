@@ -1,20 +1,25 @@
 import { useMemo, useState } from 'react'
 import ScenarioComparisonTable from '../components/ScenarioComparisonTable'
 import KPIBreakdown from '../components/KPIBreakdown'
-import { useCreateScenario, useEvaluateScenario } from '../hooks/useScenarios'
+import { useCompareScenarios, useCreateScenario, useEvaluateScenario, useValidateScenario } from '../hooks/useScenarios'
 import { PromoScenario, ScenarioKPI } from '../types'
+import { useScenarioStore } from '../store/useScenarioStore'
+import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 
 export default function ScenarioLabScreen() {
   const [brief, setBrief] = useState('Promo for TVs & Gaming 22-27 Oct')
-  const [scenarios, setScenarios] = useState<Array<{ scenario: PromoScenario; kpi?: ScenarioKPI }>>([])
   const [selectedId, setSelectedId] = useState<string>()
 
   const createScenario = useCreateScenario()
   const evaluateScenario = useEvaluateScenario()
+  const compareScenarios = useCompareScenarios()
+  const validateScenario = useValidateScenario()
+  const { items, upsert, setKpi, byId } = useScenarioStore()
+  const { selectedScenarioIds, addScenarioId, setSelectedScenarioIds } = useScenarioSelectionStore()
 
   const selected = useMemo(
-    () => scenarios.find((s) => s.scenario.id === selectedId) ?? scenarios[0],
-    [scenarios, selectedId]
+    () => byId(selectedId || selectedScenarioIds[0] || (items[0]?.scenario.id ?? '')) ?? items[0],
+    [byId, items, selectedId, selectedScenarioIds]
   )
 
   const handleCreate = async () => {
@@ -31,11 +36,46 @@ export default function ScenarioLabScreen() {
       })
       const kpi = await evaluateScenario.mutateAsync(scenario)
       const entry = { scenario, kpi }
-      setScenarios((prev) => [...prev, entry])
+      upsert(entry)
+      addScenarioId(scenario.id!)
       setSelectedId(scenario.id)
+      setKpi(scenario.id!, kpi)
     } catch (e) {
       console.error('Failed to create/evaluate scenario', e)
     }
+  }
+
+  const handleCompare = async () => {
+    const scenarios = items.filter((i) => selectedScenarioIds.includes(i.scenario.id!)).map((i) => i.scenario)
+    if (!scenarios.length) return
+    try {
+      const comparison = await compareScenarios.mutateAsync(scenarios)
+      // Map returned KPIs to store
+      comparison.forEach((kpi) => {
+        setKpi(kpi.scenario_id, kpi)
+      })
+    } catch (e) {
+      console.error('Failed to compare scenarios', e)
+    }
+  }
+
+  const handleValidate = async () => {
+    if (!selected?.scenario) return
+    try {
+      const validation = await validateScenario.mutateAsync({ scenario: selected.scenario, kpi: selected.kpi })
+      alert(
+        validation.is_valid
+          ? 'Validation passed'
+          : `Validation issues:\n${validation.issues.join('\n') || 'Unknown issues'}`
+      )
+    } catch (e) {
+      console.error('Failed to validate scenario', e)
+    }
+  }
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id)
+    addScenarioId(id)
   }
 
   return (
@@ -56,12 +96,34 @@ export default function ScenarioLabScreen() {
         >
           {createScenario.isPending || evaluateScenario.isPending ? 'Generating...' : 'Generate Scenario'}
         </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleCompare}
+            className="bg-slate-100 text-gray-800 px-3 py-2 rounded border"
+            disabled={compareScenarios.isPending || items.length === 0}
+          >
+            {compareScenarios.isPending ? 'Comparing...' : 'Compare Selected'}
+          </button>
+          <button
+            onClick={handleValidate}
+            className="bg-slate-100 text-gray-800 px-3 py-2 rounded border"
+            disabled={validateScenario.isPending || !selected?.scenario}
+          >
+            {validateScenario.isPending ? 'Validating...' : 'Validate'}
+          </button>
+          <button
+            onClick={() => setSelectedScenarioIds([])}
+            className="bg-slate-50 text-gray-600 px-3 py-2 rounded border"
+          >
+            Clear Selection
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
           <ScenarioComparisonTable
-            scenarios={scenarios.map((s) => ({ id: s.scenario.id!, name: s.scenario.name, kpi: s.kpi }))}
-            onSelect={(id) => setSelectedId(id)}
+            scenarios={items.map((s) => ({ id: s.scenario.id!, name: s.scenario.name, kpi: s.kpi }))}
+            onSelect={handleSelect}
           />
         </div>
         <div className="bg-white rounded-lg shadow p-6">

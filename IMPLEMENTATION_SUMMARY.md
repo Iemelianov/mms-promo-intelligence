@@ -100,6 +100,12 @@ This document summarizes what has been implemented as part of the delivery plan.
 - Zustand stores for filters and scenario selection (`frontend/src/store/`)
 - `.env.example` for frontend (`frontend/.env.example`) and README updated with setup notes
 
+### ✅ Frontend Flows (in progress)
+- Discovery: інтеграція з `/discovery/analyze` та `/discovery/context`, фільтри month/geo, вивід opportunities, gap chart, контекст.
+- Scenario Lab: створення сценарію → `/scenarios/create`, оцінка KPI → `/scenarios/evaluate`, порівняння `/scenarios/compare`, валідація `/scenarios/validate`; збереження сценаріїв і вибору у Zustand.
+- Optimization: форма цілей/обмежень → `/optimization/optimize`, вивід оптимізованих сценаріїв, frontier `/optimization/frontier`, ранжування `/optimization/rank`.
+- Creative: генерація брифу `/creative/brief` та assets `/creative/assets` для вибраного сценарію.
+
 ## Platform & Quality
 
 ### ✅ Configuration & Secrets
