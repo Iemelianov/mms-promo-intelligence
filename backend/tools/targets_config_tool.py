@@ -11,7 +11,7 @@ get_brand_rules() -> BrandRules
 
 from typing import Optional, Dict, Any
 
-from ..models.schemas import Targets, Constraints, BrandRules
+from models.schemas import Targets, Constraints, BrandRules
 
 
 class TargetsConfigTool:

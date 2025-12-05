@@ -7,7 +7,7 @@ Endpoints for scenario creation, evaluation, and comparison.
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 
-from ...models.schemas import PromoScenario, ScenarioKPI, ComparisonReport, ValidationReport
+from models.schemas import PromoScenario, ScenarioKPI, ComparisonReport, ValidationReport
 
 router = APIRouter()
 

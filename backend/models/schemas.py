@@ -106,7 +106,7 @@ class CreativeBrief(BaseModel):
 class AssetSpec(BaseModel):
     """Asset specification."""
     asset_type: str  # homepage_hero, banner, instore, email_header
-    copy: str
+    copy_text: str
     layout_hints: Optional[Dict[str, Any]] = None
     dimensions: Optional[Dict[str, int]] = None
 

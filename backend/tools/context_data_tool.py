@@ -11,7 +11,7 @@ get_seasonality_profile(geo: str) -> SeasonalityProfile
 from typing import List, Optional, Tuple, Dict
 from datetime import date, timedelta
 
-from ..models.schemas import Event, SeasonalityProfile, DateRange
+from models.schemas import Event, SeasonalityProfile, DateRange
 
 
 class ContextDataTool:

@@ -7,7 +7,7 @@ Endpoints for creative brief and asset generation.
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from ...models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
+from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
 
 router = APIRouter()
 

@@ -7,7 +7,7 @@ Endpoints for scenario optimization.
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional, Dict, Any
 
-from ...models.schemas import PromoScenario, FrontierData, RankedScenarios
+from models.schemas import PromoScenario, FrontierData, RankedScenarios
 
 router = APIRouter()
 

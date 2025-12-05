@@ -18,9 +18,9 @@ from datetime import date
 
 import pandas as pd
 
-from ..models.schemas import BaselineForecast, PromoContext, DateRange
-from ..tools.sales_data_tool import SalesDataTool
-from ..tools.targets_config_tool import TargetsConfigTool
+from models.schemas import BaselineForecast, PromoContext, DateRange
+from tools.sales_data_tool import SalesDataTool
+from tools.targets_config_tool import TargetsConfigTool
 
 
 class ForecastBaselineEngine:

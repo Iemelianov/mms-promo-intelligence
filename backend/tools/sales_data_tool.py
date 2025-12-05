@@ -18,7 +18,7 @@ from functools import lru_cache
 import pandas as pd
 from pandas import DataFrame
 
-from ..models.schemas import DateRange
+from models.schemas import DateRange
 
 
 class SalesDataTool:
