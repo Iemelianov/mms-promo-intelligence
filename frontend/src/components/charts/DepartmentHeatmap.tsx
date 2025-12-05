@@ -32,3 +32,4 @@ export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
     </div>
   )
 }
+

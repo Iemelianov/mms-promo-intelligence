@@ -138,3 +138,4 @@ class CoPilotAgent:
         if current_task:
             self.context['current_task'] = current_task
 
+

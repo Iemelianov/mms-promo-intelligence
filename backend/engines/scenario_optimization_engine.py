@@ -155,7 +155,7 @@ class ScenarioOptimizationEngine:
         # Evaluate and score all candidates
         scored: List[tuple] = []
 
-        weights = objectives or {\"sales\": 0.6, \"margin\": 0.4}
+        weights = objectives or {"sales": 0.6, "margin": 0.4}
         total_weight = sum(weights.values()) or 1.0
         weights = {k: v / total_weight for k, v in weights.items()}
 
@@ -165,9 +165,9 @@ class ScenarioOptimizationEngine:
                 if self.evaluation_engine and self.validation_engine:
                     # For scoring we need baseline/uplift/context; delegate to evaluation engine caller
                     # Optimization routes will perform evaluation; here use discount proxy if not provided
-                    score = (scenario.discount_percentage / 100.0) * weights.get(\"sales\", 0.6)
+                    score = (scenario.discount_percentage / 100.0) * weights.get("sales", 0.6)
                 else:
-                    score = (scenario.discount_percentage / 100.0) * weights.get(\"sales\", 0.6)
+                    score = (scenario.discount_percentage / 100.0) * weights.get("sales", 0.6)
             except Exception:
                 score = 0
             scored.append((scenario, score))

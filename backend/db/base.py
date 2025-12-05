@@ -5,7 +5,7 @@ SQLAlchemy models for database tables.
 """
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -30,7 +30,7 @@ class SalesAggregated(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     __table_args__ = (
-        {"unique_constraint": ("date", "channel", "department", "promo_flag")},
+        UniqueConstraint("date", "channel", "department", "promo_flag"),
     )
 
 
