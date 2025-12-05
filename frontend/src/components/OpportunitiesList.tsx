@@ -1,4 +1,5 @@
 import { PromoOpportunity } from '../types'
+import { formatCurrency } from '../utils/format'
 
 interface Props {
   opportunities?: PromoOpportunity[]
@@ -16,7 +17,7 @@ export default function OpportunitiesList({ opportunities, onSelect }: Props) {
           onClick={() => onSelect?.(opp)}
         >
           <div className="font-semibold">{opp.department} - {opp.channel}</div>
-          <div className="text-sm text-gray-600">Potential: {Math.round(opp.estimated_potential).toLocaleString()}</div>
+          <div className="text-sm text-gray-600">Potential: {formatCurrency(opp.estimated_potential)}</div>
           <div className="text-xs text-gray-500">Priority: {opp.priority}</div>
         </div>
       ))}
