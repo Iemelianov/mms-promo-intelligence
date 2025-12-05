@@ -54,6 +54,30 @@ class PostMortemAnalyticsEngine:
             "observed_uplift_margin": actual_margin - forecast_margin,
         }
 
+        # Post-promo dip heuristic: requires post-period sales in payload
+        post_promo_dip = None
+        post_sales = actual_data.get("post_period_sales_value")
+        post_days = actual_data.get("post_period_days", 0) or 0
+        promo_days = max((scenario.date_range.end_date - scenario.date_range.start_date).days + 1, 1)
+        if post_sales is not None and post_days:
+            promo_avg = actual_sales / promo_days if promo_days else 0
+            post_avg = float(post_sales) / float(post_days)
+            if promo_avg > 0:
+                post_promo_dip = (post_avg - promo_avg) / promo_avg
+                uplift_analysis["post_promo_avg"] = post_avg
+                uplift_analysis["promo_avg"] = promo_avg
+
+        # Cannibalization heuristic: expects list of other_categories with before/during sales.
+        cannibalization_signals = []
+        other_categories = actual_data.get("other_categories") or []
+        for cat in other_categories:
+            before = float(cat.get("sales_before", 0) or 0)
+            during = float(cat.get("sales_during", 0) or 0)
+            if before > 0 and (during - before) / before < -0.05:
+                cannibalization_signals.append(
+                    f"Potential cannibalization in {cat.get('department','unknown')}: {((during-before)/before):.1%}"
+                )
+
         insights = []
         if forecast_accuracy["sales_pct_error"] > 0.05:
             insights.append("Sales exceeded forecast; consider increasing baseline or lowering discount uplift assumptions.")
@@ -61,6 +85,10 @@ class PostMortemAnalyticsEngine:
             insights.append("Sales underperformed; revisit uplift coefficients and promo depth.")
         if forecast_accuracy["margin_pct_error"] < -0.05:
             insights.append("Margin erosion beyond forecast; check discount and mix effects.")
+        if post_promo_dip is not None and post_promo_dip < -0.1:
+            insights.append("Detected post-promo dip >10%; consider softer landing tactics.")
+        if cannibalization_signals:
+            insights.append("Cannibalization signals detected in non-promoted categories.")
         if not insights:
             insights.append("Performance within expected range.")
 
@@ -68,8 +96,8 @@ class PostMortemAnalyticsEngine:
             scenario_id=scenario.id or "unknown",
             forecast_accuracy=forecast_accuracy,
             uplift_analysis=uplift_analysis,
-            post_promo_dip=None,
-            cannibalization_signals=None,
+            post_promo_dip=post_promo_dip,
+            cannibalization_signals=cannibalization_signals or None,
             insights=insights,
         )
 
@@ -100,5 +128,14 @@ class PostMortemAnalyticsEngine:
         actual_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Detect cannibalization effects (placeholder)."""
-        return {"signals": [], "note": "Cannibalization detection not implemented"}
+        signals = []
+        other_categories = actual_data.get("other_categories") or []
+        for cat in other_categories:
+            before = float(cat.get("sales_before", 0) or 0)
+            during = float(cat.get("sales_during", 0) or 0)
+            if before > 0 and (during - before) / before < -0.05:
+                signals.append(
+                    f"Potential cannibalization in {cat.get('department','unknown')}: {((during-before)/before):.1%}"
+                )
+        return {"signals": signals, "note": "Heuristic cannibalization check"}
 

@@ -3,7 +3,7 @@ Post-mortem API routes.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Body
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import date
 from sqlalchemy.orm import Session
 
@@ -83,6 +83,29 @@ async def analyze_postmortem(
             "ebit": actual_data.get("ebit"),
         },
     }
+
+
+@router.post("/learn")
+async def learn_uplift(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """
+    Update uplift model coefficients based on post-mortem reports.
+    Accepts a list of post-mortem reports (or uses last analyze response).
+    """
+    post_mortems_data: List[Dict[str, Any]] = payload.get("post_mortems") or []
+    if not post_mortems_data:
+        raise HTTPException(status_code=400, detail="post_mortems array is required")
+
+    # Build current model
+    current_model = uplift_engine.build_uplift_model({})
+    pm_objects: List[PostMortemReport] = []
+    for pm in post_mortems_data:
+        pm_objects.append(PostMortemReport.model_validate(pm))
+
+    updated_model = learning_engine.update_uplift_model(current_model, pm_objects)
+    return {"updated_model": updated_model}
 """
 Post-mortem API routes.
 """
