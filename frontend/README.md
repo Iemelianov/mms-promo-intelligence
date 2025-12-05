@@ -20,11 +20,8 @@ npm preview
 
 ## Environment Variables
 
-Create a `.env` file in the frontend directory:
-
-```
-VITE_API_URL=http://localhost:8000
-```
+- Скопіюй `.env.example` → `.env` у `frontend/`.
+- Мінімум: `VITE_API_URL=http://localhost:8000` (або інший бекенд URL).
 
 ## Project Structure
 
@@ -33,12 +30,19 @@ frontend/
 ├── src/
 │   ├── components/     # Reusable React components
 │   ├── screens/         # Main application screens
-│   ├── services/        # API client services
-│   ├── hooks/           # Custom React hooks
+│   ├── services/        # API client (axios) with typed endpoints
+│   ├── store/           # Global UI store (Zustand)
+│   ├── types.ts         # Shared domain/API types
 │   └── App.tsx          # Main app component
 ├── public/              # Static assets
 └── package.json         # Dependencies and scripts
 ```
+
+## API Client & Data
+
+- API клієнт: `src/services/api.ts` (axios, unwrap .data, базовий лог).
+- Спільні типи домену/API: `src/types.ts` синхронізовані з `docs/data-models.md` та бекенд `models/schemas.py`.
+- Стан запитів: React Query (`src/main.tsx`), глобальний UI: Zustand (`src/store/useUIStore.ts`).
 
 ## Features
 
