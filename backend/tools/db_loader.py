@@ -175,6 +175,7 @@ class DatabaseLoaderTool:
                     conn.register("df_temp", df_load)
                     conn.execute("CREATE OR REPLACE TEMP TABLE tmp_load AS SELECT * FROM df_temp;")
                     predicate = " AND ".join([f"{table_name}.{col}=s.{col}" for col in conflict_keys])
+                    # DuckDB does not allow alias for target, so reference table directly and alias via USING
                     conn.execute(f"DELETE FROM {table_name} USING tmp_load AS s WHERE {predicate};")
                     conn.execute(f"INSERT INTO {table_name} SELECT * FROM tmp_load;")
                     conn.execute("DROP TABLE IF EXISTS tmp_load;")
@@ -255,4 +256,3 @@ class DatabaseLoaderTool:
             else:
                 self.engine.dispose()
             logger.info("Database connection closed")
-

@@ -5,11 +5,18 @@ Database session utilities.
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import NoSuchModuleError
+
+from db.base import ensure_metadata_column
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mms.db")
 
 # Use future engine for SQLAlchemy 2 style
 engine = create_engine(DATABASE_URL, future=True)
+
+# Backward-compatibility migration: rename legacy 'metadata' column if present.
+ensure_metadata_column(engine)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
 

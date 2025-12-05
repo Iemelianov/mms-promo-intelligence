@@ -2,7 +2,7 @@
 Post-mortem API routes.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from typing import Dict, Any
 
@@ -22,6 +22,7 @@ class PostMortemRequest(BaseModel):
 @get_rate_limit("standard")
 async def analyze_postmortem(
     request: PostMortemRequest,
+    http_request: Request,
     current_user=Depends(require_analyst),
 ) -> Dict[str, Any]:
     """Analyze completed campaign (stubbed to spec shape)."""

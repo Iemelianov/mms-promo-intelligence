@@ -17,9 +17,9 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import pandas as pd
 
-from ..models.schemas import UpliftModel, PromoContext
-from ..tools.sales_data_tool import SalesDataTool
-from ..tools.promo_catalog_tool import PromoCatalogTool
+from models.schemas import UpliftModel, PromoContext
+from tools.sales_data_tool import SalesDataTool
+from tools.promo_catalog_tool import PromoCatalogTool
 
 
 class UpliftElasticityEngine:

@@ -9,7 +9,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Import models for autogenerate
-from models.schemas import Base
 from db.base import Base as DBBase
 
 # this is the Alembic Config object

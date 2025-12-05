@@ -7,6 +7,10 @@ Main FastAPI application setup and configuration.
 import os
 import logging
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -42,8 +46,8 @@ try:
         logger.info("Phoenix observability enabled")
     else:
         logger.info("Phoenix API key not found, observability disabled")
-except ImportError:
-    logger.warning("Phoenix not installed, observability disabled")
+except (ImportError, ModuleNotFoundError, SyntaxError):
+    logger.warning("Phoenix not available or incompatible, observability disabled")
 
 app = FastAPI(
     title="Promo Scenario Co-Pilot API",
@@ -162,4 +166,3 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
-

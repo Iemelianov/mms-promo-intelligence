@@ -7,6 +7,7 @@ Phoenix tracing and structured logging for engines and tools.
 import logging
 import functools
 import time
+import inspect
 from typing import Callable, Any, Optional
 from contextlib import contextmanager
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 try:
     from phoenix.trace import tracer
     PHOENIX_AVAILABLE = True
-except (ImportError, SyntaxError, Exception):
+except (ImportError, SyntaxError):
     PHOENIX_AVAILABLE = False
     tracer = None
 
@@ -105,7 +106,7 @@ def trace_function(
                 )
                 raise
         
-        if functools.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper

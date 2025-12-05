@@ -8,9 +8,9 @@ get_segments() -> List[Segment]
 get_segment_distribution(department: str) -> Dict[str, float]
 """
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
-from ..models.schemas import Segment
+from models.schemas import Segment
 
 
 class CDPTool:
@@ -71,5 +71,3 @@ class CDPTool:
         """
         # TODO: Implement segment preferences logic
         raise NotImplementedError("get_segment_preferences not yet implemented")
-
-
