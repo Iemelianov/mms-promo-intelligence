@@ -2,6 +2,114 @@
 Post-mortem API routes.
 """
 
+from fastapi import APIRouter, HTTPException, Depends, Body
+from typing import Dict, Any, List
+from datetime import date
+from sqlalchemy.orm import Session
+
+from models.schemas import PostMortemReport, PromoScenario, DateRange
+from engines.post_mortem_analytics_engine import PostMortemAnalyticsEngine
+from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
+from engines.forecast_baseline_engine import ForecastBaselineEngine
+from engines.uplift_elasticity_engine import UpliftElasticityEngine
+from engines.context_engine import ContextEngine
+from engines.learning_engine import LearningEngine
+from tools.sales_data_tool import SalesDataTool
+from tools.context_data_tool import ContextDataTool
+from tools.targets_config_tool import TargetsConfigTool
+from db.session import get_session
+from db.base import Scenario as ScenarioDB
+from api.routes.scenarios import _get_scenario  # reuse helper
+
+router = APIRouter()
+
+sales_tool = SalesDataTool()
+context_tool = ContextDataTool()
+targets_tool = TargetsConfigTool()
+baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
+uplift_engine = UpliftElasticityEngine(sales_data_tool=sales_tool)
+evaluation_engine = ScenarioEvaluationEngine(uplift_engine=uplift_engine)
+context_engine = ContextEngine(context_tool=context_tool)
+postmortem_engine = PostMortemAnalyticsEngine(sales_data_tool=sales_tool)
+learning_engine = LearningEngine()
+
+
+@router.post("/analyze")
+async def analyze_postmortem(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """
+    Analyze completed campaign and return post-mortem report.
+    """
+    scenario_id = payload.get("scenario_id")
+    actual_data = payload.get("actual_data") or {}
+    period = payload.get("period") or {}
+
+    if not scenario_id:
+        raise HTTPException(status_code=400, detail="scenario_id is required")
+
+    scenario = _get_scenario(db, scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    # Re-evaluate forecast KPIs for the scenario period
+    baseline = baseline_engine.calculate_baseline(
+        (scenario.date_range.start_date, scenario.date_range.end_date)
+    )
+    uplift_model = uplift_engine.build_uplift_model({})
+    context = context_engine.build_context(
+        geo="DE",
+        date_range=DateRange(
+            start_date=scenario.date_range.start_date,
+            end_date=scenario.date_range.end_date
+        )
+    )
+    forecast_kpi = evaluation_engine.evaluate_scenario(scenario, baseline, uplift_model, context)
+
+    report = postmortem_engine.analyze_performance(
+        scenario=scenario,
+        forecast=forecast_kpi.model_dump(),
+        actual_data=actual_data
+    )
+
+    return {
+        "report": report,
+        "forecast_kpi": forecast_kpi,
+        "actual_kpi": {
+            "sales_value": actual_data.get("sales_value"),
+            "margin_value": actual_data.get("margin_value"),
+            "units": actual_data.get("units"),
+            "ebit": actual_data.get("ebit"),
+        },
+    }
+
+
+@router.post("/learn")
+async def learn_uplift(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    """
+    Update uplift model coefficients based on post-mortem reports.
+    Accepts a list of post-mortem reports (or uses last analyze response).
+    """
+    post_mortems_data: List[Dict[str, Any]] = payload.get("post_mortems") or []
+    if not post_mortems_data:
+        raise HTTPException(status_code=400, detail="post_mortems array is required")
+
+    # Build current model
+    current_model = uplift_engine.build_uplift_model({})
+    pm_objects: List[PostMortemReport] = []
+    for pm in post_mortems_data:
+        pm_objects.append(PostMortemReport.model_validate(pm))
+
+    updated_model = learning_engine.update_uplift_model(current_model, pm_objects)
+    return {"updated_model": updated_model}
+"""
+Post-mortem API routes.
+"""
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from typing import Dict, Any
