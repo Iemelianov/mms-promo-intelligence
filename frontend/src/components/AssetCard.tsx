@@ -6,3 +6,4 @@ export default function AssetCard({ asset }: { asset: any }) {
     </div>
   )
 }
+

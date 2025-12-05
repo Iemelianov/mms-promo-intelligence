@@ -4,16 +4,18 @@ Creative API Routes
 Endpoints for creative brief and asset generation.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Body
 from typing import List, Optional
 from datetime import date, timedelta
 
 from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
+from middleware.auth import get_current_user, require_analyst
+from middleware.rate_limit import get_rate_limit
 from engines.creative_engine import CreativeEngine
 from tools.targets_config_tool import TargetsConfigTool
 from tools.cdp_tool import CDPTool
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 # Initialize engines and tools
 config_tool = TargetsConfigTool()
@@ -22,8 +24,10 @@ creative_engine = CreativeEngine(cdp_tool=cdp_tool, config_tool=config_tool)
 
 
 @router.post("/finalize")
+@get_rate_limit("standard")
 async def finalize_campaign(
-    scenarios: List[PromoScenario]
+    scenarios: List[PromoScenario] = Body(...),
+    current_user=Depends(require_analyst),
 ) -> CampaignPlan:
     """
     Finalize selected scenarios into campaign plan.
@@ -80,9 +84,11 @@ async def finalize_campaign(
 
 
 @router.post("/brief")
+@get_rate_limit("standard")
 async def generate_brief(
     scenario: PromoScenario,
-    segments: Optional[List[str]] = None
+    segments: Optional[List[str]] = None,
+    current_user=Depends(require_analyst),
 ) -> CreativeBrief:
     """
     Generate creative brief from scenario.
@@ -105,8 +111,10 @@ async def generate_brief(
 
 
 @router.post("/assets")
+@get_rate_limit("standard")
 async def generate_assets(
-    brief: CreativeBrief
+    brief: CreativeBrief,
+    current_user=Depends(require_analyst),
 ) -> List[AssetSpec]:
     """
     Generate asset specifications from creative brief.
