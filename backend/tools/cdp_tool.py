@@ -72,3 +72,4 @@ class CDPTool:
         # TODO: Implement segment preferences logic
         raise NotImplementedError("get_segment_preferences not yet implemented")
 
+

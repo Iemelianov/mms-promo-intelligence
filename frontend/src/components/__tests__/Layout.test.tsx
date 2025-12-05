@@ -12,3 +12,4 @@ describe('Layout', () => {
     expect(screen.getByText('Promo Scenario Co-Pilot')).toBeInTheDocument()
   })
 })
+

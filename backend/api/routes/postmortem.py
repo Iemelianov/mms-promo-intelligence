@@ -1,0 +1,47 @@
+"""
+Post-mortem API routes.
+"""
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Dict, Any
+
+from middleware.auth import require_analyst
+from middleware.rate_limit import get_rate_limit
+
+router = APIRouter()
+
+
+class PostMortemRequest(BaseModel):
+    scenario_id: str
+    actual_data: Dict[str, float]
+    period: Dict[str, str]
+
+
+@router.post("/analyze")
+@get_rate_limit("standard")
+async def analyze_postmortem(
+    request: PostMortemRequest,
+    current_user=Depends(require_analyst),
+) -> Dict[str, Any]:
+    """Analyze completed campaign (stubbed to spec shape)."""
+    return {
+        "report": {
+            "scenario_id": request.scenario_id,
+            "forecast_kpi": {
+                "sales_value": 3200000,
+                "margin_value": 720000,
+                "units": 18000,
+            },
+            "actual_kpi": request.actual_data,
+            "vs_forecast": {
+                "sales_value_error_pct": -3.1,
+                "margin_value_error_pct": -2.8,
+            },
+            "insights": [
+                "Uplift in Gaming was over-estimated",
+                "TV sales exceeded forecast",
+            ],
+            "learning_points": ["Adjust Gaming uplift coefficient by -5%"],
+        }
+    }
