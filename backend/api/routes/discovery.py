@@ -4,10 +4,11 @@ Discovery API Routes
 Endpoints for discovery and context analysis.
 """
 
-from fastapi import APIRouter, HTTPException
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Body
+from typing import List, Optional, Dict, Any
 from datetime import date
 from calendar import monthrange
+from pydantic import BaseModel
 
 from models.schemas import PromoOpportunity, PromoContext, GapAnalysis, DateRange
 from engines.forecast_baseline_engine import ForecastBaselineEngine
@@ -21,6 +22,12 @@ sales_tool = SalesDataTool()
 context_tool = ContextDataTool()
 targets_tool = TargetsConfigTool()
 baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
+
+
+class DiscoveryAnalyzeRequest(BaseModel):
+    month: str
+    geo: str
+    targets: Optional[Dict[str, Any]] = None
 
 
 def _month_to_range(month: str) -> tuple:
@@ -100,7 +107,7 @@ async def get_context(
     geo: str,
     start_date: date,
     end_date: date
-) -> PromoContext:
+) -> Dict[str, Any]:
     """
     Get comprehensive context for promotional planning.
     
@@ -113,7 +120,13 @@ async def get_context(
         PromoContext object
     """
     try:
-        return _build_context(geo=geo, start_date=start_date, end_date=end_date)
+        ctx = _build_context(geo=geo, start_date=start_date, end_date=end_date)
+        ctx_dict = ctx.model_dump()
+        ctx_dict["date_range"] = {
+            "start": ctx.date_range.start_date.isoformat(),
+            "end": ctx.date_range.end_date.isoformat(),
+        }
+        return {"context": ctx_dict}
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -155,12 +168,12 @@ async def get_gaps(
 
 
 @router.post("/analyze")
-async def analyze(
-    month: str,
-    geo: str,
-    targets: Optional[dict] = None
-) -> dict:
+async def analyze(payload: DiscoveryAnalyzeRequest = Body(...)) -> dict:
     """Analyze situation and identify opportunities with baseline and gaps."""
+    month = payload.month
+    geo = payload.geo
+    targets = payload.targets
+
     start_date, end_date = _month_to_range(month)
     baseline = baseline_engine.calculate_baseline((start_date, end_date))
     targets_data = targets or targets_tool.get_targets(month).model_dump()
@@ -168,7 +181,7 @@ async def analyze(
     opportunities = await get_opportunities(month=month, geo=geo, targets=targets)
     return {
         "baseline_forecast": {
-            "period": {"start": start_date, "end": end_date},
+            "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "totals": {
                 "sales_value": baseline.total_sales,
                 "margin_value": baseline.total_margin,

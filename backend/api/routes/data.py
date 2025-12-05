@@ -26,6 +26,7 @@ targets_tool = TargetsConfigTool()
 baseline_engine = ForecastBaselineEngine(sales_data_tool=sales_tool, targets_tool=targets_tool)
 
 
+
 @router.post("/process-xlsb")
 @get_rate_limit("data_processing")
 async def process_xlsb_files(
@@ -203,13 +204,81 @@ async def get_quality_report(
 @router.get("/baseline")
 async def get_baseline(
     start_date: date,
-    end_date: date
+    end_date: date,
+    department: str | None = None,
+    channel: str | None = None
 ) -> BaselineForecast:
     """Get baseline forecast for the requested date range."""
     try:
-        return baseline_engine.calculate_baseline((start_date, end_date))
+        df_filters = {"department": department, "channel": channel}
+        baseline = baseline_engine.calculate_baseline((start_date, end_date))
+        if department or channel:
+            agg = sales_tool.get_aggregated_sales(
+                date_range=(start_date, end_date),
+                grain=["date"],
+                filters=df_filters
+            )
+            if not agg.empty:
+                baseline.total_sales = float(agg["sales_value"].sum())
+                baseline.total_margin = float(agg["margin_value"].sum())
+                baseline.total_units = float(agg["units"].sum())
+        return baseline
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get("/segments")
+async def get_segments() -> dict:
+    """Return demo CDP segments."""
+    segments = [
+        {
+            "segment_id": "LOYAL_HIGH_VALUE",
+            "name": "Loyal High Value",
+            "share_of_customers": 0.18,
+            "description": "High frequency, high AOV customers",
+        },
+        {
+            "segment_id": "PRICE_SENSITIVE",
+            "name": "Price Sensitive",
+            "share_of_customers": 0.32,
+            "description": "Promotion responsive shoppers",
+        },
+        {
+            "segment_id": "NEW_CUSTOMERS",
+            "name": "New Customers",
+            "share_of_customers": 0.12,
+            "description": "Acquired in last 90 days",
+        },
+    ]
+    return {"segments": segments}
+
+
+@router.get("/uplift-model")
+async def get_uplift_model(
+    department: str | None = None,
+    channel: str | None = None
+) -> dict:
+    """Return a lightweight uplift model snapshot."""
+    coefficients = {
+        "TV": {"online": 0.18, "store": 0.12},
+        "GAMING": {"online": 0.22, "store": 0.15},
+        "AUDIO": {"online": 0.14, "store": 0.1},
+    }
+    filtered = coefficients
+    if department:
+        dep_key = department.upper()
+        filtered = {dep_key: coefficients.get(dep_key, {"online": 0.1, "store": 0.1})}
+    if channel:
+        channel_key = channel.lower()
+        filtered = {
+            dep: {channel_key: vals.get(channel_key, 0.1)} for dep, vals in filtered.items()
+        }
+    return {
+        "department": department,
+        "channel": channel,
+        "coefficients": filtered,
+        "version": "demo-1",
+    }
 
 
 @router.post("/store")

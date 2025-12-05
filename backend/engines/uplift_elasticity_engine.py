@@ -137,12 +137,12 @@ class UpliftElasticityEngine:
                         promo_data = df[
                             (df["department"] == dept) &
                             (df["channel"] == channel) &
-                            (df["promo_flag"] == "True")
+                            (df["promo_flag"].str.lower() == "true")
                         ]
                         non_promo_data = df[
                             (df["department"] == dept) &
                             (df["channel"] == channel) &
-                            (df["promo_flag"] == "False")
+                            (df["promo_flag"].str.lower() == "false")
                         ]
                         
                         if not promo_data.empty and not non_promo_data.empty:

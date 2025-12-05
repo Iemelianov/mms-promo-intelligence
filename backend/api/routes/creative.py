@@ -12,6 +12,7 @@ from models.schemas import PromoScenario, CampaignPlan, CreativeBrief, AssetSpec
 from engines.creative_engine import CreativeEngine
 from tools.targets_config_tool import TargetsConfigTool
 from tools.cdp_tool import CDPTool
+from .scenarios import SCENARIO_STORE
 
 router = APIRouter()
 
@@ -122,3 +123,37 @@ async def generate_assets(
         return assets
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Error generating assets: {str(exc)}") from exc
+
+
+@router.post("/generate")
+async def generate_creative_package(payload: dict) -> dict:
+    """
+    Docs-friendly endpoint: generate creative brief and assets for scenarios.
+    """
+    scenario_ids = payload.get("scenario_ids") or []
+    asset_types = payload.get("asset_types") or ["homepage_hero", "category_banner"]
+    target_segments = payload.get("target_segments") or ["LOYAL_HIGH_VALUE"]
+
+    briefs = []
+    for scenario_id in scenario_ids or ["demo_scenario"]:
+        scenario = SCENARIO_STORE.get(scenario_id) if "SCENARIO_STORE" in globals() else None  # type: ignore[name-defined]
+        if not scenario:
+            from datetime import date, timedelta
+            from models.schemas import DateRange
+
+            today = date.today()
+            scenario = PromoScenario(
+                id=scenario_id,
+                name="Demo Scenario",
+                description="Demo creative scenario",
+                date_range=DateRange(start_date=today, end_date=today + timedelta(days=7)),
+                departments=["TV", "Gaming"],
+                channels=["online", "store"],
+                discount_percentage=15.0,
+            )
+        brief = creative_engine.generate_creative_brief(scenario=scenario, segments=target_segments)
+        assets = creative_engine.generate_asset_specs(brief)
+        filtered_assets = [a for a in assets if a.asset_type in asset_types] or assets
+        briefs.append({"scenario_id": scenario_id, "creative_brief": brief, "assets": filtered_assets})
+
+    return {"briefs": briefs}

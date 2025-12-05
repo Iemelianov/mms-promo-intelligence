@@ -7,7 +7,16 @@ interface DeptPoint {
 }
 
 export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
-  const treeData = [{ name: 'departments', children: data.map(d => ({ name: d.name, size: Math.abs(d.gap_pct), gap_pct: d.gap_pct })) }]
+  const treeData = [
+    {
+      name: 'departments',
+      children: data.map(d => ({
+        name: d.name,
+        size: Math.abs(d.gap_pct),
+        gap_pct: d.gap_pct,
+      })),
+    },
+  ]
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -17,7 +26,10 @@ export default function DepartmentHeatmap({ data }: { data: DeptPoint[] }) {
           stroke="#fff"
           content={(props) => {
             const { x, y, width, height, name, payload } = props as any
-            const color = payload.gap_pct >= 0 ? '#10b981' : '#ef4444'
+            if (!payload || width === undefined || height === undefined) return null
+
+            const gapPct = payload.gap_pct ?? 0
+            const color = gapPct >= 0 ? '#10b981' : '#ef4444'
             return (
               <g>
                 <rect x={x} y={y} width={width} height={height} style={{ fill: color, opacity: 0.8 }} />
