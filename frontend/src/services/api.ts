@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -23,8 +23,12 @@ export const discoveryApi = {
 
 // Scenarios API
 export const scenariosApi = {
-  create: (brief: string, parameters?: any) =>
-    apiClient.post(`/api/v1/scenarios/create`, { brief, parameters }),
+  create: (payload: any, parameters?: any) => {
+    if (typeof payload === 'string') {
+      return apiClient.post(`/api/v1/scenarios/create`, { brief: payload, parameters })
+    }
+    return apiClient.post(`/api/v1/scenarios/create`, payload)
+  },
   evaluate: (scenario: any) =>
     apiClient.post(`/api/v1/scenarios/evaluate`, scenario),
   compare: (scenarios: any[], scenarioIds?: string[]) =>
@@ -53,6 +57,20 @@ export const creativeApi = {
     apiClient.post(`/api/v1/creative/brief`, { scenario, segments }),
   assets: (brief: any) =>
     apiClient.post(`/api/v1/creative/assets`, brief),
+}
+
+// Chat API
+export const chatApi = {
+  message: (message: string, context?: any) =>
+    apiClient.post(`/api/v1/chat/message`, { message, context }),
+  stream: (message: string, context?: any) =>
+    fetch(`${API_URL}/api/v1/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message, context }),
+    }),
 }
 
 // Data API
