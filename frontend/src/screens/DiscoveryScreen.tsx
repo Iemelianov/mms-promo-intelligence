@@ -2,6 +2,9 @@ import { useMemo } from 'react'
 import { useDiscoveryAnalyze, useDiscoveryContext } from '../hooks/useDiscovery'
 import { useFiltersStore } from '../store/useFiltersStore'
 import { notifyError } from '../lib/toast'
+import { useQueryClient } from '@tanstack/react-query'
+import { formatNumber } from '../utils/format'
+import { EmptyState, ErrorState, LoadingState } from '../components/Status'
 import GapVsTargetChart from '../components/charts/GapVsTargetChart'
 import DepartmentHeatmap from '../components/charts/DepartmentHeatmap'
 import ContextWidget from '../components/ContextWidget'
@@ -9,6 +12,7 @@ import OpportunitiesList from '../components/OpportunitiesList'
 
 export default function DiscoveryScreen() {
   const { month, geo, setMonth, setGeo } = useFiltersStore()
+  const qc = useQueryClient()
 
   const { data: analyze, isLoading: analyzeLoading, error: analyzeError } = useDiscoveryAnalyze({ month, geo })
 
@@ -44,11 +48,13 @@ export default function DiscoveryScreen() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
           <input
-            type="text"
+            type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2"
             placeholder="YYYY-MM"
+            pattern="\d{4}-\d{2}"
+            required
           />
         </div>
         <div>
@@ -65,9 +71,9 @@ export default function DiscoveryScreen() {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Gap vs Target</h3>
         {analyzeLoading ? (
-          <div>Loading...</div>
+          <LoadingState />
         ) : analyzeError ? (
-          <div className="text-red-600 text-sm">Failed to load gap data</div>
+          <ErrorState message="Failed to load gap data" />
         ) : (
           <GapVsTargetChart data={gapChartData} />
         )}
@@ -75,11 +81,11 @@ export default function DiscoveryScreen() {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
             <div className="bg-gray-50 rounded px-3 py-2">
               <div className="font-semibold">Sales gap</div>
-              <div>{analyze.gap_analysis.sales_gap.toLocaleString()}</div>
+              <div>{formatNumber(analyze.gap_analysis.sales_gap)}</div>
             </div>
             <div className="bg-gray-50 rounded px-3 py-2">
               <div className="font-semibold">Margin gap</div>
-              <div>{analyze.gap_analysis.margin_gap.toLocaleString()}</div>
+              <div>{formatNumber(analyze.gap_analysis.margin_gap)}</div>
             </div>
           </div>
         )}
@@ -92,21 +98,27 @@ export default function DiscoveryScreen() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Context</h3>
-          {contextError ? (
-            <div className="text-red-600 text-sm">Failed to load context</div>
-          ) : (
-            <ContextWidget context={context} />
-          )}
+          {contextError ? <ErrorState message="Failed to load context" /> : <ContextWidget context={context} />}
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Opportunities</h3>
           {analyzeLoading ? (
-            <div>Loading...</div>
+            <LoadingState />
           ) : analyzeError ? (
-            <div className="text-red-600 text-sm">Failed to load opportunities</div>
+            <ErrorState message="Failed to load opportunities" />
           ) : (
             <OpportunitiesList opportunities={analyze?.opportunities} />
           )}
+          <div className="mt-3">
+            <button
+              className="text-xs text-blue-600 underline"
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ['discovery', 'analyze'] })
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
     </div>

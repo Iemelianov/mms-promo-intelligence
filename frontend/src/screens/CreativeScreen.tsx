@@ -5,6 +5,7 @@ import { useGenerateAssets, useGenerateBrief } from '../hooks/useCreative'
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { notifyError, notifySuccess } from '../lib/toast'
+import { EmptyState, LoadingState } from '../components/Status'
 
 export default function CreativeScreen() {
   const { selectedScenarioIds } = useScenarioSelectionStore()
@@ -51,14 +52,14 @@ export default function CreativeScreen() {
           {briefResult ? (
             <CreativeBriefView brief={briefResult} />
           ) : (
-            <div className="text-gray-500 text-sm">No brief yet</div>
+            generateBrief.isPending ? <LoadingState /> : <EmptyState message="No brief yet" />
           )}
         </div>
         <div className="space-y-3">
           {assetsResult.length > 0 ? (
             assetsResult.map((asset, idx) => <AssetCard key={idx} asset={asset} />)
           ) : (
-            <div className="text-gray-500 text-sm">No assets yet</div>
+            generateAssets.isPending ? <LoadingState /> : <EmptyState message="No assets yet" />
           )}
         </div>
       </div>

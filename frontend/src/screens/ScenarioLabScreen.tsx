@@ -6,6 +6,7 @@ import { PromoScenario, ScenarioKPI } from '../types'
 import { useScenarioStore } from '../store/useScenarioStore'
 import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 import { notifyError, notifySuccess } from '../lib/toast'
+import { EmptyState, LoadingState } from '../components/Status'
 
 export default function ScenarioLabScreen() {
   const [brief, setBrief] = useState('Promo for TVs & Gaming 22-27 Oct')
@@ -97,6 +98,8 @@ export default function ScenarioLabScreen() {
           onChange={(e) => setBrief(e.target.value)}
           className="border border-gray-300 rounded-md px-3 py-2 w-full"
           rows={2}
+          minLength={10}
+          required
         />
         <button
           onClick={handleCreate}
@@ -105,7 +108,7 @@ export default function ScenarioLabScreen() {
         >
           {createScenario.isPending || evaluateScenario.isPending ? 'Generating...' : 'Generate Scenario'}
         </button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={handleCompare}
             className="bg-slate-100 text-gray-800 px-3 py-2 rounded border"
@@ -137,10 +140,12 @@ export default function ScenarioLabScreen() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="font-semibold mb-2">Selected Scenario</h3>
-          {selected ? (
+          {compareScenarios.isPending ? (
+            <LoadingState />
+          ) : selected ? (
             <KPIBreakdown kpi={selected.kpi} />
           ) : (
-            <div className="text-gray-500 text-sm">Select a scenario</div>
+            <EmptyState message="Select a scenario" />
           )}
           {validationMsg && <div className="mt-3 text-xs text-gray-700 bg-gray-50 border rounded px-3 py-2">{validationMsg}</div>}
         </div>
