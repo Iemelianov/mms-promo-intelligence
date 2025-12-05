@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import NoSuchModuleError
 
-from db.base import ensure_metadata_column
+from db.base import ensure_metadata_column, Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mms.db")
 
@@ -16,6 +16,9 @@ engine = create_engine(DATABASE_URL, future=True)
 
 # Backward-compatibility migration: rename legacy 'metadata' column if present.
 ensure_metadata_column(engine)
+
+# Ensure tables exist (best-effort for dev/local environments).
+Base.metadata.create_all(bind=engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 

@@ -9,8 +9,12 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
 import secrets
+import hashlib
+from sqlalchemy.orm import Session
 
 from middleware.auth import create_access_token, get_current_user, User, Role, require_admin
+from db.session import get_session
+from db.base import ApiKey
 
 router = APIRouter()
 
@@ -30,7 +34,8 @@ class APIKeyResponse(BaseModel):
 @router.post("/api-keys", response_model=APIKeyResponse)
 async def create_api_key(
     request: APIKeyRequest,
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_session)
 ) -> APIKeyResponse:
     """
     Create a new API key.
@@ -43,13 +48,12 @@ async def create_api_key(
     # Calculate expiration
     expires_at = datetime.utcnow() + timedelta(days=request.expires_in_days)
     
-    # TODO: Store API key in database with user association
-    # For now, return the key (in production, hash and store)
-    
-    return APIKeyResponse(
-        api_key=api_key,
-        expires_at=expires_at.isoformat() + "Z"
-    )
+    # Persist hashed key
+    key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    db.add(ApiKey(name=request.name, key_hash=key_hash, expires_at=expires_at, created_by=current_user.email))
+    db.commit()
+
+    return APIKeyResponse(api_key=api_key, expires_at=expires_at.isoformat() + "Z")
 
 
 @router.get("/me")
