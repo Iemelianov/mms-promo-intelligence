@@ -13,9 +13,9 @@ Responsibilities:
 from typing import Optional, Dict, Any
 from langchain.agents import AgentExecutor
 
-from ..models.schemas import PromoScenario, ValidationReport, ComplianceReport, ConstraintCheck
-from ..engines.validation_engine import ValidationEngine
-from ..tools.targets_config_tool import TargetsConfigTool
+from models.schemas import PromoScenario, ValidationReport, ComplianceReport, ConstraintCheck
+from engines.validation_engine import ValidationEngine
+from tools.targets_config_tool import TargetsConfigTool
 
 
 class ValidationAgent:
