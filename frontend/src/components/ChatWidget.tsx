@@ -1,14 +1,32 @@
 import { useState } from 'react'
+import { useChat } from '../hooks/useChat'
+import { notifyError } from '../lib/toast'
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [history, setHistory] = useState<string[]>([])
+  const chat = useChat()
+  const [suggestions, setSuggestions] = useState<string[]>([])
 
   const send = () => {
     if (!message) return
-    setHistory((h) => [...h, `You: ${message}`, 'Co-Pilot: (response placeholder)'])
+    const current = message
+    setHistory((h) => [...h, `You: ${current}`])
     setMessage('')
+    chat.mutate(
+      { message: current, context: { screen: 'global' } },
+      {
+        onSuccess: (res) => {
+          setHistory((h) => [...h, `Co-Pilot: ${res.response}`])
+          setSuggestions(res.suggestions || [])
+        },
+        onError: () => {
+          notifyError('Chat request failed')
+          setHistory((h) => [...h, 'Co-Pilot: (failed to respond)'])
+        },
+      }
+    )
   }
 
   return (
@@ -26,6 +44,22 @@ export default function ChatWidget() {
               <div key={idx}>{h}</div>
             ))}
           </div>
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {suggestions.map((s, idx) => (
+                <button
+                  key={idx}
+                  className="bg-gray-100 px-2 py-1 rounded border"
+                  onClick={() => {
+                    setMessage(s)
+                    send()
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               className="border rounded px-2 py-1 text-sm flex-1"
@@ -34,7 +68,7 @@ export default function ChatWidget() {
               onChange={(e) => setMessage(e.target.value)}
             />
             <button className="bg-blue-600 text-white text-sm px-3 py-1 rounded" onClick={send}>
-              Send
+              {chat.isPending ? '...' : 'Send'}
             </button>
           </div>
         </div>

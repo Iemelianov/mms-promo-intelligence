@@ -1,4 +1,6 @@
-export default function CreativeBriefView({ brief }: { brief: any }) {
+import { CreativeBrief } from '../types'
+
+export default function CreativeBriefView({ brief }: { brief: CreativeBrief }) {
   return (
     <div className="space-y-2 text-sm">
       <div className="font-semibold">Objectives</div>
