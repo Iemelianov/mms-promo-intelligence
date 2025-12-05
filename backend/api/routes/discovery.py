@@ -152,3 +152,30 @@ async def get_gaps(
         units_gap=gaps["units_gap"],
         gap_percentage=gap_percentage,
     )
+
+
+@router.post("/analyze")
+async def analyze(
+    month: str,
+    geo: str,
+    targets: Optional[dict] = None
+) -> dict:
+    """Analyze situation and identify opportunities with baseline and gaps."""
+    start_date, end_date = _month_to_range(month)
+    baseline = baseline_engine.calculate_baseline((start_date, end_date))
+    targets_data = targets or targets_tool.get_targets(month).model_dump()
+    gaps = baseline_engine.calculate_gap_vs_targets(baseline, targets_data)
+    opportunities = await get_opportunities(month=month, geo=geo, targets=targets)
+    return {
+        "baseline_forecast": {
+            "period": {"start": start_date, "end": end_date},
+            "totals": {
+                "sales_value": baseline.total_sales,
+                "margin_value": baseline.total_margin,
+                "margin_pct": (baseline.total_margin / baseline.total_sales) if baseline.total_sales else 0.0,
+                "units": baseline.total_units,
+            },
+        },
+        "gap_analysis": gaps,
+        "opportunities": opportunities,
+    }

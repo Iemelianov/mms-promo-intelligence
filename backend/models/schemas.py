@@ -262,3 +262,4 @@ class AnalysisDataset(BaseModel):
     data: Dict[str, Any]  # DataFrame or similar
     metadata: Dict[str, Any]
     filters_applied: Dict[str, Any]
+

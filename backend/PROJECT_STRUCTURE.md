@@ -152,3 +152,4 @@ All modules are currently placeholders with:
 - Follow the architecture defined in `docs/architecture.md`
 - Keep engines stateless and reusable
 - Keep tools focused on single responsibilities
+

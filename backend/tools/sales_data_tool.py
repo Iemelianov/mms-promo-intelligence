@@ -24,27 +24,72 @@ from models.schemas import DateRange
 class SalesDataTool:
     """Tool for accessing historical sales data."""
     
-    def __init__(self, db_connection=None, data_path: Optional[str] = None):
+    def __init__(self, db_connection=None, data_path: Optional[str] = None, database_url: Optional[str] = None):
         """
         Initialize Sales Data Tool.
         
         Args:
-            db_connection: Database connection object
+            db_connection: Database connection object (legacy)
             data_path: Optional path to a CSV file with aggregated sales
+            database_url: Optional database URL (e.g., "duckdb:///path/to/db" or "postgresql://...")
         """
         self.db_connection = db_connection
+        self.database_url = database_url
         default_path = Path(__file__).resolve().parents[1] / "data" / "sample_sales.csv"
         self.data_path = Path(data_path) if data_path else default_path
-        if not self.data_path.exists():
+        if not self.database_url and not self.data_path.exists():
             raise FileNotFoundError(f"Sample sales data not found at {self.data_path}")
 
-    @lru_cache(maxsize=1)
     def _load_dataframe(self) -> DataFrame:
-        """Load sales data from CSV once and cache it."""
-        df = pd.read_csv(self.data_path, parse_dates=["date"])
-        df["channel"] = df["channel"].str.lower()
-        df["department"] = df["department"].str.upper()
-        df["promo_flag"] = df["promo_flag"].astype(str)
+        """Load sales data from database or CSV."""
+        # Try database first if configured
+        if self.database_url:
+            try:
+                return self._load_from_database()
+            except Exception:
+                # Fall back to CSV if database fails
+                pass
+        
+        # Load from CSV
+        if self.data_path.exists():
+            df = pd.read_csv(self.data_path, parse_dates=["date"])
+            df["channel"] = df["channel"].str.lower()
+            df["department"] = df["department"].str.upper()
+            df["promo_flag"] = df["promo_flag"].astype(str)
+            return df
+        
+        return pd.DataFrame()
+    
+    def _load_from_database(self) -> DataFrame:
+        """Load sales data from database."""
+        import os
+        from sqlalchemy import create_engine, text
+        
+        database_url = self.database_url or os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("No database URL configured")
+        
+        if database_url.startswith('duckdb://'):
+            import duckdb
+            db_path = database_url.replace('duckdb://', '')
+            conn = duckdb.connect(db_path)
+            df = conn.execute("SELECT * FROM sales_aggregated").df()
+            conn.close()
+        else:
+            engine = create_engine(database_url)
+            with engine.connect() as conn:
+                df = pd.read_sql(text("SELECT * FROM sales_aggregated"), conn)
+        
+        # Standardize columns
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+        if "channel" in df.columns:
+            df["channel"] = df["channel"].str.lower()
+        if "department" in df.columns:
+            df["department"] = df["department"].str.upper()
+        if "promo_flag" in df.columns:
+            df["promo_flag"] = df["promo_flag"].astype(str)
+        
         return df
 
     def _filter_dataframe(

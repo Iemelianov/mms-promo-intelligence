@@ -94,3 +94,4 @@ class OptimizationAgent:
         """
         # TODO: Implement scenario ranking logic
         raise NotImplementedError("rank_by_objectives not yet implemented")
+

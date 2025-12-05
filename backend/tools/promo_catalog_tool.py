@@ -305,3 +305,4 @@ class PromoCatalogTool:
         """Cache promotional campaigns."""
         self._promo_cache = campaigns
 
+

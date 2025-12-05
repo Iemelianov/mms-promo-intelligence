@@ -137,3 +137,4 @@ class CoPilotAgent:
             self.context['validation_reports'] = validation_reports
         if current_task:
             self.context['current_task'] = current_task
+

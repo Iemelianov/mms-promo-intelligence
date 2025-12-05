@@ -21,6 +21,7 @@ import pandas as pd
 from models.schemas import BaselineForecast, PromoContext, DateRange
 from tools.sales_data_tool import SalesDataTool
 from tools.targets_config_tool import TargetsConfigTool
+from middleware.observability import trace_function, log_metric
 
 
 class ForecastBaselineEngine:
@@ -41,6 +42,7 @@ class ForecastBaselineEngine:
         self.sales_data_tool = sales_data_tool
         self.targets_tool = targets_tool
     
+    @trace_function(name="baseline_calculation", attributes={"engine": "forecast_baseline"})
     def calculate_baseline(
         self,
         date_range: tuple,
@@ -108,6 +110,10 @@ class ForecastBaselineEngine:
                 baseline=baseline,
                 targets=targets.model_dump(),
             )
+        
+        # Log metrics
+        log_metric("baseline.forecast.sales", baseline.total_sales)
+        log_metric("baseline.forecast.margin", baseline.total_margin)
 
         return baseline
     
