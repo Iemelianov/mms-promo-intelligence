@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 try:
     from phoenix.trace import tracer
     PHOENIX_AVAILABLE = True
-except ImportError:
+except (ImportError, SyntaxError, Exception):
     PHOENIX_AVAILABLE = False
     tracer = None
 
