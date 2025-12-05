@@ -3,7 +3,7 @@ import { useDiscoveryAnalyze, useDiscoveryContext } from '../hooks/useDiscovery'
 import { useFiltersStore } from '../store/useFiltersStore'
 import { notifyError } from '../lib/toast'
 import { useQueryClient } from '@tanstack/react-query'
-import { formatNumber } from '../utils/format'
+import { formatCurrency, formatNumber } from '../utils/format'
 import { EmptyState, ErrorState, LoadingState } from '../components/Status'
 import GapVsTargetChart from '../components/charts/GapVsTargetChart'
 import DepartmentHeatmap from '../components/charts/DepartmentHeatmap'
@@ -81,11 +81,11 @@ export default function DiscoveryScreen() {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
             <div className="bg-gray-50 rounded px-3 py-2">
               <div className="font-semibold">Sales gap</div>
-              <div>{formatNumber(analyze.gap_analysis.sales_gap)}</div>
+              <div>{formatCurrency(analyze.gap_analysis.sales_gap)}</div>
             </div>
             <div className="bg-gray-50 rounded px-3 py-2">
               <div className="font-semibold">Margin gap</div>
-              <div>{formatNumber(analyze.gap_analysis.margin_gap)}</div>
+              <div>{formatCurrency(analyze.gap_analysis.margin_gap)}</div>
             </div>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { PromoContext } from '../types'
+import { formatDate } from '../utils/format'
 
 export default function ContextWidget({ context }: { context?: PromoContext }) {
   if (!context) return <div className="text-gray-500">No context available</div>
@@ -9,7 +10,7 @@ export default function ContextWidget({ context }: { context?: PromoContext }) {
         <div className="font-semibold">Events</div>
         <ul className="list-disc list-inside">
           {(context.events || []).map((ev, idx) => (
-            <li key={idx}>{ev.name} ({ev.date})</li>
+              <li key={idx}>{ev.name} ({formatDate(ev.date)})</li>
           ))}
         </ul>
       </div>
