@@ -5,7 +5,7 @@ SQLAlchemy models for database tables.
 """
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint, inspect, text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -81,7 +81,7 @@ class Scenario(Base):
     channels = Column(Text)  # JSON array
     discount_percentage = Column(Float, nullable=False)
     segments = Column(Text)  # JSON array
-    metadata = Column(Text)  # JSON object
+    metadata_json = Column(Text)  # JSON object
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = Column(String(100))
@@ -103,3 +103,21 @@ class ScenarioKPI(Base):
     calculated_at = Column(DateTime, default=datetime.utcnow, index=True)
     
     scenario = relationship("Scenario", backref="kpis")
+
+
+def ensure_metadata_column(engine) -> None:
+    """
+    Ensure backward compatibility for databases that still have a 'metadata'
+    column instead of 'metadata_json'. This is intentionally NOT executed at
+    import time to avoid circular imports; callers should invoke it once after
+    engine creation.
+    """
+    try:
+        insp = inspect(engine)
+        columns = [col["name"] for col in insp.get_columns("scenarios")]
+        if "metadata_json" not in columns and "metadata" in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE scenarios RENAME COLUMN metadata TO metadata_json"))
+    except Exception:
+        # Safe guard: if inspection fails, do nothing.
+        return

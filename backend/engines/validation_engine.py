@@ -15,8 +15,8 @@ Checks:
 
 from typing import Optional, Dict, Any, List
 
-from ..models.schemas import PromoScenario, ScenarioKPI, ValidationReport
-from ..tools.targets_config_tool import TargetsConfigTool
+from models.schemas import PromoScenario, ScenarioKPI, ValidationReport
+from tools.targets_config_tool import TargetsConfigTool
 
 
 class ValidationEngine:

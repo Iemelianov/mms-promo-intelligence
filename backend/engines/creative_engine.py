@@ -13,9 +13,9 @@ Output: CreativeBrief with:
 
 from typing import List, Optional, Dict, Any
 
-from ..models.schemas import PromoScenario, CreativeBrief, AssetSpec
-from ..tools.cdp_tool import CDPTool
-from ..tools.targets_config_tool import TargetsConfigTool
+from models.schemas import PromoScenario, CreativeBrief, AssetSpec
+from tools.cdp_tool import CDPTool
+from tools.targets_config_tool import TargetsConfigTool
 
 
 class CreativeEngine:
@@ -53,7 +53,7 @@ class CreativeEngine:
         Returns:
             CreativeBrief with objectives, messaging, tone, style
         """
-        from ..models.schemas import CreativeBrief
+        from models.schemas import CreativeBrief
         
         # Get brand rules from config tool if not provided
         if brand_rules is None and self.config_tool:
@@ -136,7 +136,7 @@ class CreativeEngine:
         Returns:
             List of AssetSpec objects (homepage hero, banners, in-store, etc.)
         """
-        from ..models.schemas import AssetSpec
+        from models.schemas import AssetSpec
         
         assets = []
         
