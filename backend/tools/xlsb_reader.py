@@ -104,10 +104,10 @@ class XLSBReaderTool:
     def read_multiple_files(self, file_paths: List[str]) -> Dict[str, pd.DataFrame]:
         """
         Read multiple XLSB files.
-        
+
         Args:
             file_paths: List of file paths
-            
+
         Returns:
             Dictionary mapping file paths to DataFrames
         """
@@ -119,8 +119,6 @@ class XLSBReaderTool:
             except Exception as e:
                 logger.error(f"Failed to read {file_path}: {str(e)}")
                 results[file_path] = None
-        
+
         return results
-
-
 

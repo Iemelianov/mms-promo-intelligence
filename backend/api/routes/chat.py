@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Generator
+import json
 
 from middleware.auth import get_current_user
 from middleware.rate_limit import get_rate_limit
@@ -38,8 +39,9 @@ async def chat_message(
 def _stream_response(text: str) -> Generator[bytes, None, None]:
     chunks = text.split(" ")
     for chunk in chunks:
-        yield f"data: {{\"chunk\": \"{chunk}\", \"done\": false}}\n\n".encode()
-    yield b'data: {"chunk": "", "done": true}\n\n'
+        payload = json.dumps({"chunk": chunk, "done": False})
+        yield f"data: {payload}\n\n".encode()
+    yield f"data: {json.dumps({'chunk': '', 'done': True})}\n\n".encode()
 
 
 @router.post("/stream")

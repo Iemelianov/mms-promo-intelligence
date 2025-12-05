@@ -33,3 +33,5 @@ export default function ScenarioComparisonTable({ scenarios, onSelect }: { scena
   )
 }
 
+
+
