@@ -13,8 +13,8 @@ Output: PostMortemReport with:
 
 from typing import Optional, Dict, Any
 
-from models.schemas import PromoScenario, PostMortemReport
-from tools.sales_data_tool import SalesDataTool
+from ..models.schemas import PromoScenario, PostMortemReport
+from ..tools.sales_data_tool import SalesDataTool
 
 
 class PostMortemAnalyticsEngine:
@@ -73,5 +73,4 @@ class PostMortemAnalyticsEngine:
         """Detect cannibalization effects."""
         # TODO: Implement cannibalization detection
         raise NotImplementedError("detect_cannibalization not yet implemented")
-
 

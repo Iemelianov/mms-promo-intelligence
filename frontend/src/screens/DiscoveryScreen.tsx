@@ -1,46 +1,35 @@
-import { useMemo } from 'react'
-import { useDiscoveryAnalyze, useDiscoveryContext } from '../hooks/useDiscovery'
-import { useFiltersStore } from '../store/useFiltersStore'
-import { notifyError } from '../lib/toast'
-import { useQueryClient } from '@tanstack/react-query'
-import { formatCurrency, formatNumber } from '../utils/format'
-import { EmptyState, ErrorState, LoadingState } from '../components/Status'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { discoveryApi } from '../services/api'
 import GapVsTargetChart from '../components/charts/GapVsTargetChart'
 import DepartmentHeatmap from '../components/charts/DepartmentHeatmap'
 import ContextWidget from '../components/ContextWidget'
 import OpportunitiesList from '../components/OpportunitiesList'
 
 export default function DiscoveryScreen() {
-  const { month, geo, setMonth, setGeo } = useFiltersStore()
-  const qc = useQueryClient()
+  const [month, setMonth] = useState('2024-10')
+  const [geo, setGeo] = useState('DE')
+  
+  const { data: opportunities, isLoading: opportunitiesLoading } = useQuery({
+    queryKey: ['opportunities', month, geo],
+    queryFn: () => discoveryApi.getOpportunities(month, geo).then(res => res.data),
+    enabled: !!month && !!geo,
+  })
+  
+  const { data: gaps, isLoading: gapsLoading } = useQuery({
+    queryKey: ['gaps', month, geo],
+    queryFn: () => discoveryApi.getGaps(month, geo).then(res => res.data),
+    enabled: !!month && !!geo,
+  })
 
-  const { data: analyze, isLoading: analyzeLoading, error: analyzeError } = useDiscoveryAnalyze({ month, geo })
-
-  const periodStart = analyze?.baseline_forecast?.period.start
-  const periodEnd = analyze?.baseline_forecast?.period.end
-
-  const { data: context, error: contextError } = useDiscoveryContext(
-    geo,
-    periodStart ?? '',
-    periodEnd ?? '',
-    Boolean(periodStart && periodEnd)
-  )
-
-  const gapChartData = useMemo(() => {
-    if (!analyze?.baseline_forecast || !analyze.gap_analysis) return []
-    const actual = analyze.baseline_forecast.totals.sales_value
-    const target = actual + analyze.gap_analysis.sales_gap
-    return [{ date: analyze.baseline_forecast.period.start, actual, target }]
-  }, [analyze])
-
-  const deptHeatmapData = useMemo(() => {
-    if (!analyze?.opportunities) return []
-    return analyze.opportunities.map((opp) => ({
-      name: opp.department,
-      gap_pct: 0,
-      sales_value: opp.estimated_potential,
-    }))
-  }, [analyze])
+  const gapChartData = [
+    { date: '2024-10-01', actual: 200000, target: 220000 },
+    { date: '2024-10-02', actual: 210000, target: 220000 },
+  ]
+  const deptHeatmapData = [
+    { name: 'TV', gap_pct: -8, sales_value: 500000 },
+    { name: 'Gaming', gap_pct: 5, sales_value: 300000 },
+  ]
 
   return (
     <div className="px-4 py-6 space-y-6">
@@ -48,13 +37,11 @@ export default function DiscoveryScreen() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
           <input
-            type="month"
+            type="text"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2"
             placeholder="YYYY-MM"
-            pattern="\d{4}-\d{2}"
-            required
           />
         </div>
         <div>
@@ -70,25 +57,7 @@ export default function DiscoveryScreen() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Gap vs Target</h3>
-        {analyzeLoading ? (
-          <LoadingState />
-        ) : analyzeError ? (
-          <ErrorState message="Failed to load gap data" />
-        ) : (
-          <GapVsTargetChart data={gapChartData} />
-        )}
-        {analyze?.gap_analysis && (
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
-            <div className="bg-gray-50 rounded px-3 py-2">
-              <div className="font-semibold">Sales gap</div>
-              <div>{formatCurrency(analyze.gap_analysis.sales_gap)}</div>
-            </div>
-            <div className="bg-gray-50 rounded px-3 py-2">
-              <div className="font-semibold">Margin gap</div>
-              <div>{formatCurrency(analyze.gap_analysis.margin_gap)}</div>
-            </div>
-          </div>
-        )}
+        <GapVsTargetChart data={gapChartData} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -98,27 +67,11 @@ export default function DiscoveryScreen() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Context</h3>
-          {contextError ? <ErrorState message="Failed to load context" /> : <ContextWidget context={context} />}
+          <ContextWidget />
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Opportunities</h3>
-          {analyzeLoading ? (
-            <LoadingState />
-          ) : analyzeError ? (
-            <ErrorState message="Failed to load opportunities" />
-          ) : (
-            <OpportunitiesList opportunities={analyze?.opportunities} />
-          )}
-          <div className="mt-3">
-            <button
-              className="text-xs text-blue-600 underline"
-              onClick={() => {
-                qc.invalidateQueries({ queryKey: ['discovery', 'analyze'] })
-              }}
-            >
-              Refresh
-            </button>
-          </div>
+          {opportunitiesLoading ? <div>Loading...</div> : <OpportunitiesList opportunities={opportunities} />}
         </div>
       </div>
     </div>

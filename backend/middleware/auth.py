@@ -17,18 +17,9 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 # JWT Configuration
-ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-# Require explicit secret outside development
-if not SECRET_KEY:
-    if ENVIRONMENT == "development":
-        SECRET_KEY = "dev-secret-key"
-        logger.warning("Using fallback JWT secret in development. Set JWT_SECRET_KEY in production.")
-    else:
-        raise RuntimeError("JWT_SECRET_KEY must be set in non-development environments")
 
 
 class Role(str, Enum):
@@ -90,8 +81,10 @@ async def get_current_user(
     
     For development: Returns a mock user if no token provided.
     """
+    environment = os.getenv("ENVIRONMENT", "development")
+    
     # Skip auth in development if no token provided
-    if ENVIRONMENT == "development" and not credentials:
+    if environment == "development" and not credentials:
         return User(
             user_id="dev_user",
             email="dev@example.com",

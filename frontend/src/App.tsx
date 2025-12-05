@@ -4,7 +4,6 @@ import DiscoveryScreen from './screens/DiscoveryScreen'
 import ScenarioLabScreen from './screens/ScenarioLabScreen'
 import OptimizationScreen from './screens/OptimizationScreen'
 import CreativeScreen from './screens/CreativeScreen'
-import PostMortemScreen from './screens/PostMortemScreen'
 
 function App() {
   return (
@@ -15,7 +14,6 @@ function App() {
         <Route path="/scenarios" element={<ScenarioLabScreen />} />
         <Route path="/optimization" element={<OptimizationScreen />} />
         <Route path="/creative" element={<CreativeScreen />} />
-        <Route path="/postmortem" element={<PostMortemScreen />} />
       </Routes>
     </Layout>
   )

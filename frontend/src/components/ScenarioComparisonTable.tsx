@@ -1,7 +1,7 @@
 interface ScenarioRow {
   id: string
   name: string
-  kpi?: { total_sales: number; total_margin: number; total_ebit: number; total_units: number }
+  kpi: { total_sales: number; total_margin: number; total_ebit: number; total_units: number }
 }
 
 export default function ScenarioComparisonTable({ scenarios, onSelect }: { scenarios: ScenarioRow[]; onSelect: (id: string) => void }) {
@@ -21,10 +21,10 @@ export default function ScenarioComparisonTable({ scenarios, onSelect }: { scena
           {scenarios.map((s) => (
             <tr key={s.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onSelect(s.id)}>
               <td className="px-3 py-2 font-medium text-gray-900">{s.name}</td>
-              <td className="px-3 py-2">{s.kpi?.total_sales ?? '-'}</td>
-              <td className="px-3 py-2">{s.kpi?.total_margin ?? '-'}</td>
-              <td className="px-3 py-2">{s.kpi?.total_ebit ?? '-'}</td>
-              <td className="px-3 py-2">{s.kpi?.total_units ?? '-'}</td>
+              <td className="px-3 py-2">{s.kpi.total_sales}</td>
+              <td className="px-3 py-2">{s.kpi.total_margin}</td>
+              <td className="px-3 py-2">{s.kpi.total_ebit}</td>
+              <td className="px-3 py-2">{s.kpi.total_units}</td>
             </tr>
           ))}
         </tbody>
@@ -32,4 +32,3 @@ export default function ScenarioComparisonTable({ scenarios, onSelect }: { scena
     </div>
   )
 }
-
