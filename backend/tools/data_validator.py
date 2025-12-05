@@ -59,6 +59,10 @@ class DataValidationTool:
         # Timeliness checks
         timeliness_score, timeliness_issues = self._check_timeliness(df)
         issues.extend(timeliness_issues)
+
+        # Anomaly detection (simple z-score on sales_value)
+        anomaly_issues = self._check_anomalies(df)
+        issues.extend(anomaly_issues)
         
         # Calculate clean records
         clean_records = len(df) - len([i for i in issues if i['severity'] == 'high'])
@@ -70,6 +74,7 @@ class DataValidationTool:
             "accuracy": accuracy_score,
             "consistency": consistency_score,
             "timeliness": timeliness_score,
+            "anomaly_checks": len(anomaly_issues),
             "overall_score": (completeness_score + accuracy_score + consistency_score + timeliness_score) / 4,
             "issues": issues,
             "date_range": {
@@ -259,4 +264,23 @@ class DataValidationTool:
         
         timeliness_score = max(0.0, timeliness_score)
         return timeliness_score, issues
+
+    def _check_anomalies(self, df: pd.DataFrame) -> list:
+        """Simple anomaly checks for extreme sales values."""
+        issues = []
+        if 'sales_value' in df.columns and len(df) > 10:
+            mean = df['sales_value'].mean()
+            std = df['sales_value'].std()
+            if std > 0:
+                zscores = (df['sales_value'] - mean) / std
+                outliers = df[abs(zscores) > 4]
+                if len(outliers) > 0:
+                    issues.append({
+                        "type": "anomaly_sales",
+                        "severity": "low",
+                        "count": len(outliers),
+                        "message": f"Detected {len(outliers)} anomalous sales values (>|4| z-score)"
+                    })
+        return issues
+
 
