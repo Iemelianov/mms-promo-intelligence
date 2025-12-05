@@ -15,9 +15,9 @@ Methodology:
 
 from typing import List, Optional, Dict, Any
 
-from ..models.schemas import PromoScenario
-from ..engines.scenario_evaluation_engine import ScenarioEvaluationEngine
-from ..engines.validation_engine import ValidationEngine
+from models.schemas import PromoScenario
+from engines.scenario_evaluation_engine import ScenarioEvaluationEngine
+from engines.validation_engine import ValidationEngine
 
 
 class ScenarioOptimizationEngine:
@@ -70,7 +70,7 @@ class ScenarioOptimizationEngine:
             start_date = date_range.get("start_date", date.today() + timedelta(days=1))
             end_date = date_range.get("end_date", start_date + timedelta(days=29))
         
-        from ..models.schemas import PromoScenario, DateRange
+        from models.schemas import PromoScenario, DateRange
         
         # Generate template scenarios: Conservative, Balanced, Aggressive
         scenarios = []
