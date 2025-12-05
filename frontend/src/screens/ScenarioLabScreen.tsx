@@ -9,6 +9,7 @@ import { useScenarioSelectionStore } from '../store/useScenarioSelectionStore'
 export default function ScenarioLabScreen() {
   const [brief, setBrief] = useState('Promo for TVs & Gaming 22-27 Oct')
   const [selectedId, setSelectedId] = useState<string>()
+  const [validationMsg, setValidationMsg] = useState<string>()
 
   const createScenario = useCreateScenario()
   const evaluateScenario = useEvaluateScenario()
@@ -63,13 +64,14 @@ export default function ScenarioLabScreen() {
     if (!selected?.scenario) return
     try {
       const validation = await validateScenario.mutateAsync({ scenario: selected.scenario, kpi: selected.kpi })
-      alert(
+      setValidationMsg(
         validation.is_valid
           ? 'Validation passed'
-          : `Validation issues:\n${validation.issues.join('\n') || 'Unknown issues'}`
+          : `Issues: ${validation.issues.join(', ') || 'Unknown issues'}`
       )
     } catch (e) {
       console.error('Failed to validate scenario', e)
+      setValidationMsg('Validation failed')
     }
   }
 
@@ -133,6 +135,7 @@ export default function ScenarioLabScreen() {
           ) : (
             <div className="text-gray-500 text-sm">Select a scenario</div>
           )}
+          {validationMsg && <div className="mt-3 text-xs text-gray-700 bg-gray-50 border rounded px-3 py-2">{validationMsg}</div>}
         </div>
       </div>
     </div>

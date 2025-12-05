@@ -9,12 +9,17 @@ import OpportunitiesList from '../components/OpportunitiesList'
 export default function DiscoveryScreen() {
   const { month, geo, setMonth, setGeo } = useFiltersStore()
 
-  const { data: analyze, isLoading: analyzeLoading } = useDiscoveryAnalyze({ month, geo })
+  const { data: analyze, isLoading: analyzeLoading, error: analyzeError } = useDiscoveryAnalyze({ month, geo })
 
   const periodStart = analyze?.baseline_forecast?.period.start
   const periodEnd = analyze?.baseline_forecast?.period.end
 
-  const { data: context } = useDiscoveryContext(geo, periodStart ?? '', periodEnd ?? '', Boolean(periodStart && periodEnd))
+  const { data: context, error: contextError } = useDiscoveryContext(
+    geo,
+    periodStart ?? '',
+    periodEnd ?? '',
+    Boolean(periodStart && periodEnd)
+  )
 
   const gapChartData = useMemo(() => {
     if (!analyze?.baseline_forecast || !analyze.gap_analysis) return []
@@ -58,7 +63,25 @@ export default function DiscoveryScreen() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Gap vs Target</h3>
-        {analyzeLoading ? <div>Loading...</div> : <GapVsTargetChart data={gapChartData} />}
+        {analyzeLoading ? (
+          <div>Loading...</div>
+        ) : analyzeError ? (
+          <div className="text-red-600 text-sm">Failed to load gap data</div>
+        ) : (
+          <GapVsTargetChart data={gapChartData} />
+        )}
+        {analyze?.gap_analysis && (
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-700">
+            <div className="bg-gray-50 rounded px-3 py-2">
+              <div className="font-semibold">Sales gap</div>
+              <div>{analyze.gap_analysis.sales_gap.toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-50 rounded px-3 py-2">
+              <div className="font-semibold">Margin gap</div>
+              <div>{analyze.gap_analysis.margin_gap.toLocaleString()}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -68,11 +91,21 @@ export default function DiscoveryScreen() {
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Context</h3>
-          <ContextWidget context={context} />
+          {contextError ? (
+            <div className="text-red-600 text-sm">Failed to load context</div>
+          ) : (
+            <ContextWidget context={context} />
+          )}
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-4">Opportunities</h3>
-          {analyzeLoading ? <div>Loading...</div> : <OpportunitiesList opportunities={analyze?.opportunities} />}
+          {analyzeLoading ? (
+            <div>Loading...</div>
+          ) : analyzeError ? (
+            <div className="text-red-600 text-sm">Failed to load opportunities</div>
+          ) : (
+            <OpportunitiesList opportunities={analyze?.opportunities} />
+          )}
         </div>
       </div>
     </div>
