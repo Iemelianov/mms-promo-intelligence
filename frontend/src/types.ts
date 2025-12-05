@@ -118,7 +118,9 @@ export interface ValidationReport {
 
 export interface ComparisonReport {
   scenarios: PromoScenario[]
-  summary: Record<string, string | number>
+  kpis: ScenarioKPI[]
+  comparison_table: Record<string, number[]>
+  recommendations: string[]
 }
 
 // Optimization
